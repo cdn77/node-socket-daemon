@@ -1,0 +1,58 @@
+{
+  "name": "nodesockd",
+  "version": "1.0.0",
+  "description": "Bridges a Nginx reverse proxy to a Node.js service using Unix sockets",
+  "homepage": "https://github.com/cdn77/node-socket-daemon",
+  "author": {
+    "name": "Dan Kadera",
+    "email": "dan.kadera@cdn77.com",
+    "url": "https://www.cdn77.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cdn77/node-socket-daemon.git"
+  },
+  "dependencies": {
+    "commander": "^2.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "10.12.18",
+    "husky": "1.3.1",
+    "lint-staged": "8.1.0",
+    "npm-run-all": "4.1.5",
+    "prettier": "1.15.3",
+    "rimraf": "2.6.3",
+    "tslint": "5.12.1",
+    "tslint-config-airbnb": "5.11.1",
+    "typescript": "3.2.2"
+  },
+  "scripts": {
+    "build:cleanup": "rimraf build/*",
+    "build:compile": "tsc",
+    "build": "run-s build:cleanup build:compile",
+    "test:lint": "lint-staged",
+    "release:push": "git push && git push --tags",
+    "release:publish": "npm publish",
+    "release": "run-p release:push release:publish",
+    "preversion": "npm run build",
+    "postversion": "npm run release"
+  },
+  "bin": {
+    "nodesockd": "build/index.js"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run test:lint"
+    }
+  },
+  "lint-staged": {
+    "*.{tsx,ts,js,jsx,json,graphql,scss,hbs,yml}": [
+      "prettier --config-precedence prefer-file --write",
+      "git add"
+    ],
+    "src/**/*.{tsx,ts,js,jsx}": [
+      "tslint -p tsconfig.json --fix",
+      "git add"
+    ]
+  }
+}
