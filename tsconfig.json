@@ -4,7 +4,6 @@
     "module": "commonjs",
     "target": "es2015",
     "lib": ["esnext", "dom"],
-    "sourceMap": true,
     "allowJs": true,
     "moduleResolution": "node",
     "rootDir": "src",
