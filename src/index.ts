@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import * as program from 'commander';
 import { loadConfig } from './config';
 import { main } from './commands/main';
