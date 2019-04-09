@@ -17,14 +17,23 @@ export class WorkerInstance {
 
   private readonly listenVar: string;
 
+  private readonly env: string[];
+
   private readonly onExit: OnExitFn;
 
   private process: ChildProcess;
 
-  constructor(scriptPath: string, socketPath: string, listenVar: string, onExit: OnExitFn) {
+  constructor(
+    scriptPath: string,
+    socketPath: string,
+    listenVar: string,
+    env: string[],
+    onExit: OnExitFn,
+  ) {
     this.scriptPath = scriptPath;
     this.socketPath = socketPath;
     this.listenVar = listenVar;
+    this.env = env;
     this.onExit = onExit;
   }
 
@@ -38,13 +47,13 @@ export class WorkerInstance {
     return new Promise<void>(resolve => {
       this.process = fork(this.scriptPath, [], {
         stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
-        env: {
-          NODE_ENV: process.env.NODE_ENV,
-          [this.listenVar]: this.socketPath,
-        },
+        env: this.getEnv(),
       });
 
-      this.process.on('exit', () => this.onExit(this));
+      this.process.on('exit', () => {
+        this.process.unref();
+        this.onExit(this);
+      });
 
       this.process.on('message', message => {
         message === 'online' && resolve();
@@ -53,14 +62,31 @@ export class WorkerInstance {
   }
 
   async stop(): Promise<void> {
-    return new Promise<void>(resolve => {
-      this.process.once('exit', () => {
-        this.process.unref();
-        resolve();
-      });
-
+    return await new Promise<void>(resolve => {
+      this.process.once('exit', () => resolve());
       this.process.send('shutdown');
     });
+  }
+
+  send(message: string): void {
+    this.process.send(message);
+  }
+
+  private getEnv(): Record<string, any> {
+    const keys = Object.keys(process.env);
+    const env: Record<string, any> = {};
+
+    for (const key of this.env) {
+      if (keys.includes(key)) {
+        env[key] = process.env[key];
+      }
+    }
+
+    return {
+      ...env,
+      NODE_ENV: process.env.NODE_ENV,
+      [this.listenVar]: this.socketPath,
+    };
   }
 }
 
@@ -73,6 +99,8 @@ export class Worker {
 
   private readonly listenVar: string;
 
+  private readonly env: string[];
+
   private readonly socketPath: string;
 
   private instance: WorkerInstance | undefined;
@@ -81,11 +109,18 @@ export class Worker {
 
   private terminating: boolean = false;
 
-  constructor(workerId: number, scriptPath: string, socketPathPattern: string, listenVar: string) {
+  constructor(
+    workerId: number,
+    scriptPath: string,
+    socketPathPattern: string,
+    listenVar: string,
+    env: string[] = [],
+  ) {
     this.workerId = workerId;
     this.scriptPath = scriptPath;
     this.socketPathPattern = socketPathPattern;
     this.listenVar = listenVar;
+    this.env = env;
     this.socketPath = this.formatSocketPath();
   }
 
@@ -99,8 +134,12 @@ export class Worker {
     const socketPath = this.formatInstanceSocketPath(this.instanceId);
     const socketTmpPath = `${socketPath}.new`;
 
-    this.instance = new WorkerInstance(this.scriptPath, socketPath, this.listenVar, instance =>
-      this.handleInstanceDown(instance),
+    this.instance = new WorkerInstance(
+      this.scriptPath,
+      socketPath,
+      this.listenVar,
+      this.env,
+      instance => this.handleInstanceDown(instance),
     );
 
     await this.instance.start();
@@ -118,6 +157,10 @@ export class Worker {
     this.instance = undefined;
     await this.start();
     old && (await old.stop());
+  }
+
+  send(message: string): void {
+    this.instance && this.instance.send(message);
   }
 
   private async handleInstanceDown(instance: WorkerInstance): Promise<void> {

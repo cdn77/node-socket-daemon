@@ -39,7 +39,11 @@ class Client {
   }
 }
 
-export async function sendAction(options: Options, action: string): Promise<void> {
+export async function sendAction(
+  options: Options,
+  action: string,
+  ...args: string[]
+): Promise<void> {
   const client = new Client(options);
-  await client.send(action);
+  await client.send(action, ...args);
 }

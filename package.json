@@ -38,8 +38,9 @@
     "postversion": "npm run release"
   },
   "bin": {
-    "nodesockd": "build/index.js"
+    "nodesockd": "build/cli.js"
   },
+  "main": "build/index.js",
   "husky": {
     "hooks": {
       "pre-commit": "npm run test:lint"

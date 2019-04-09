@@ -14,7 +14,7 @@ class MainCommand {
     this.workers = this.createWorkers();
     this.ipc = new Ipc(
       this.options.ipcPath,
-      async (cmd, args, log) => await this.handleCommand(cmd, log),
+      async (cmd, args, log) => await this.handleCommand(cmd, args, log),
     );
   }
 
@@ -40,11 +40,16 @@ class MainCommand {
             this.options.scriptPath,
             this.options.socketPathPattern,
             this.options.listenVar,
+            this.options.env,
           ),
       );
   }
 
-  private async handleCommand(cmd: string, log: (msg: string) => void): Promise<void> {
+  private async handleCommand(
+    cmd: string,
+    args: string[],
+    log: (msg: string) => void,
+  ): Promise<void> {
     try {
       switch (cmd) {
         case 'start':
@@ -55,6 +60,9 @@ class MainCommand {
           break;
         case 'restart':
           await this.restartWorkers();
+          break;
+        case 'send':
+          this.sendMessage(args[0]);
           break;
       }
     } catch (e) {
@@ -72,6 +80,10 @@ class MainCommand {
 
   private async restartWorkers(): Promise<void> {
     await Promise.all(this.workers.map(async worker => await worker.restart()));
+  }
+
+  private sendMessage(message: string): void {
+    this.workers.forEach(worker => worker.send(message));
   }
 
   private async terminate(): Promise<void> {

@@ -5,7 +5,7 @@ Typically setups like this bind the backend service to a port on the loopback in
 which is secure enough, but adds some overhead. There are some pitfalls to switching over
 to UNIX sockets though, and this package aims to address them in one fell swoop:
 
- - zero downtime deploy
+ - atomic deploy
  - multiple workers supported
  - workers are automatically restarted on failure
 
@@ -74,7 +74,7 @@ const server = app.listen(process.env.LISTEN_ON, () => {
     
     process.on('message', message => {
       if (message === 'shutdown') {
-        server.close();
+        server.close(() => process.exit(0));
       }
     });
   }
@@ -192,7 +192,51 @@ providing the full path to the IPC file the running instance uses. Unless
 you provided an absolute path for `ipcFile` when running the daemon, the IPC
 file will be created in the `tmpDir` directory.
 
+### Atomic deployment with database migrations
 
+Chances are that your app uses some kind of a database backend and also that
+your database backend sometimes needs to be updated as part of the deployment
+pipeline of your app. You may be using something like [TypeORM][3] and its
+migrations, which means that your deployment pipeline would include building
+the new version of your app, applying database migrations and restarting
+your app's workers. Well, the issue is that between applying migrations
+and restarting workers there will still be a short window when your old workers
+are up, but the database has already been changed, and the old workers mightn't
+enjoy that very much. If you were to swap the order of actions so that new workers
+are started before the migrations are applied then the new workers could suffer
+from the same issue.
+
+Node Socket Daemon offers a solution for this issue: start your new workers
+in a suspended mode where all incoming requests are put on hold, apply migrations
+and tell workers to resume normal operation. All requests that arrived when
+workers were in suspended mode will be processed as usual, they'll only be
+slightly delayed (that is if your migrations only take a second or two to run).
+
+In an Express context you could implement that like this:
+
+```javascript
+const { suspendExpress, resume } = require('nodesockd');
+
+// apply this as the first middleware in the pipeline
+// so that it is used for all requests:
+app.use(suspendExpress);
+
+// in your process.on('message') handler:
+if (message === 'resume') {
+  resume();
+}
+```
+
+Then in your deployment pipeline you need to:
+ - restart workers using `nodesockd restart`
+ - apply database migrations
+ - resume workers using `nodesockd resume`
+ 
+Of course if your app is a single-page app it's still possible that some
+of your users will have an older version of the front-end code loaded
+in their browser, which may lead to conflicts with a newer backend API,
+but that's something you'll need to solve on your own.
 
 [1]: https://en.wikipedia.org/wiki/Setuid#When_set_on_a_directory
 [2]: https://en.wikipedia.org/wiki/Inter-process_communication
+[3]: https://github.com/typeorm/typeorm
