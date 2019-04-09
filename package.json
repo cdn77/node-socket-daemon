@@ -41,6 +41,11 @@
     "nodesockd": "build/cli.js"
   },
   "main": "build/index.js",
+  "typings": "build/index.d.ts",
+  "files": [
+    "build/**/*.js",
+    "build/index.d.ts"
+  ],
   "husky": {
     "hooks": {
       "pre-commit": "npm run test:lint"
