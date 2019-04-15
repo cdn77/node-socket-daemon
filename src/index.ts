@@ -9,14 +9,13 @@ export function resume(): void {
   resolve && resolve();
 }
 
-export async function suspend(done: () => any): Promise<void> {
+export async function suspend(): Promise<void> {
   if (suspended) {
     await suspended;
   }
-
-  done();
 }
 
 export async function suspendExpress(req: any, res: any, next: () => any): Promise<void> {
-  await suspend(next);
+  await suspend();
+  next();
 }
