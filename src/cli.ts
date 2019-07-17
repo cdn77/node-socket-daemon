@@ -70,5 +70,5 @@ program
   .action(async () => await run(main));
 
 const args = process.argv;
-args.some(arg => /^(start|stop|restart|send|daemon)$/.test(arg)) || args.push('daemon');
+args.some(arg => /^(start|stop|restart|resume|send|daemon)$/.test(arg)) || args.push('daemon');
 program.parse(args);
