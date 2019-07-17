@@ -22,6 +22,7 @@ class MainCommand {
     this.setupSignalHandlers();
     await this.ipc.run();
     await this.startWorkers();
+    this.sendMessage('resume');
   }
 
   private setupSignalHandlers(): void {
