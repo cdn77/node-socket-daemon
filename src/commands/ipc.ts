@@ -56,7 +56,9 @@ export class Ipc {
 
   async stop(): Promise<void> {
     if (this.server) {
-      return await new Promise<void>(done => this.server.close(done));
+      return await new Promise<void>((resolve, reject) =>
+        this.server.close(err => (err ? reject(err) : resolve())),
+      );
     }
   }
 }
