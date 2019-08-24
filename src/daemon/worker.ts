@@ -13,11 +13,7 @@ export type OnExitFn = {
 export class WorkerInstance {
   private readonly scriptPath: string;
 
-  private readonly socketPath: string;
-
-  private readonly listenVar: string;
-
-  private readonly env: string[];
+  private readonly env: Record<string, any>;
 
   private readonly onExit: OnExitFn;
 
@@ -25,29 +21,19 @@ export class WorkerInstance {
 
   constructor(
     scriptPath: string,
-    socketPath: string,
-    listenVar: string,
-    env: string[],
+    env: Record<string, any>,
     onExit: OnExitFn,
   ) {
     this.scriptPath = scriptPath;
-    this.socketPath = socketPath;
-    this.listenVar = listenVar;
     this.env = env;
     this.onExit = onExit;
   }
 
   async start(): Promise<void> {
-    try {
-      await unlink(this.socketPath);
-    } catch (e) {
-      /* noop */
-    }
-
     return new Promise<void>(resolve => {
       this.process = fork(this.scriptPath, [], {
         stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
-        env: this.getEnv(),
+        env: this.env,
       });
 
       this.process.on('exit', () => {
@@ -70,23 +56,6 @@ export class WorkerInstance {
 
   send(message: string): void {
     this.process.send(message);
-  }
-
-  private getEnv(): Record<string, any> {
-    const keys = Object.keys(process.env);
-    const env: Record<string, any> = {};
-
-    for (const key of this.env) {
-      if (keys.includes(key)) {
-        env[key] = process.env[key];
-      }
-    }
-
-    return {
-      ...env,
-      NODE_ENV: process.env.NODE_ENV,
-      [this.listenVar]: this.socketPath,
-    };
   }
 }
 
@@ -124,7 +93,7 @@ export class Worker {
     this.socketPath = this.formatSocketPath();
   }
 
-  async start(): Promise<void> {
+  async start(suspended: boolean = false): Promise<void> {
     if (this.instance) {
       return;
     }
@@ -136,11 +105,15 @@ export class Worker {
 
     this.instance = new WorkerInstance(
       this.scriptPath,
-      socketPath,
-      this.listenVar,
-      this.env,
+      this.buildEnv(socketPath, suspended),
       instance => this.handleInstanceDown(instance),
     );
+
+    try {
+      await unlink(socketPath);
+    } catch (e) {
+      /* noop */
+    }
 
     await this.instance.start();
     await symlink(socketPath, socketTmpPath);
@@ -152,11 +125,15 @@ export class Worker {
     this.instance && (await this.instance.stop());
   }
 
-  async restart(): Promise<void> {
+  async restart(suspended: boolean = false): Promise<void> {
     const old = this.instance;
     this.instance = undefined;
-    await this.start();
+    await this.start(suspended);
     old && (await old.stop());
+  }
+
+  resume(): void {
+    this.send('resume');
   }
 
   send(message: string): void {
@@ -179,5 +156,23 @@ export class Worker {
 
   private formatSocketPath(): string {
     return this.socketPathPattern.replace(/{worker}/g, this.workerId.toString());
+  }
+
+  private buildEnv(socketPath: string, suspended: boolean): Record<string, any> {
+    const env: Record<string, any> = {};
+
+    for (const key of this.env) {
+      if (process.env.hasOwnProperty(key)) {
+        env[key] = process.env[key];
+      }
+    }
+
+    return {
+      ...env,
+      NODE_ENV: process.env.NODE_ENV,
+      NODESOCKD_WORKER_ID: this.workerId.toString(),
+      NODESOCKD_SUSPENDED: suspended ? 'true' : '',
+      [this.listenVar]: socketPath,
+    };
   }
 }

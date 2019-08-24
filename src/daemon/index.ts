@@ -1,15 +1,19 @@
-import { Options } from '../config';
 import { Worker } from './worker';
 import { Ipc } from './ipc';
+import { DaemonCliOptions, DaemonOptions, processDaemonOptions } from './options';
 
-class MainCommand {
-  private options: Options;
+export class Daemon {
+  static async processOptions(options: DaemonCliOptions): Promise<DaemonOptions> {
+    return await processDaemonOptions(options);
+  }
+
+  private options: DaemonOptions;
 
   private readonly workers: Worker[];
 
   private readonly ipc: Ipc;
 
-  constructor(options: Options) {
+  constructor(options: DaemonOptions) {
     this.options = options;
     this.workers = this.createWorkers();
     this.ipc = new Ipc(
@@ -22,7 +26,6 @@ class MainCommand {
     this.setupSignalHandlers();
     await this.ipc.run();
     await this.startWorkers();
-    this.sendMessage('resume');
   }
 
   private setupSignalHandlers(): void {
@@ -54,13 +57,16 @@ class MainCommand {
     try {
       switch (cmd) {
         case 'start':
-          await this.startWorkers();
+          await this.startWorkers(args[0] === 'suspended');
           break;
         case 'stop':
           await this.stopWorkers();
           break;
         case 'restart':
-          await this.restartWorkers();
+          await this.restartWorkers(args[0] === 'suspended');
+          break;
+        case 'resume':
+          this.resumeWorkers();
           break;
         case 'send':
           this.sendMessage(args[0]);
@@ -71,16 +77,20 @@ class MainCommand {
     }
   }
 
-  private async startWorkers(): Promise<void> {
-    await Promise.all(this.workers.map(async worker => await worker.start()));
+  private async startWorkers(suspended: boolean = false): Promise<void> {
+    await Promise.all(this.workers.map(async worker => await worker.start(suspended)));
   }
 
   private async stopWorkers(): Promise<void> {
     await Promise.all(this.workers.map(async worker => await worker.stop()));
   }
 
-  private async restartWorkers(): Promise<void> {
-    await Promise.all(this.workers.map(async worker => await worker.restart()));
+  private async restartWorkers(suspended: boolean = false): Promise<void> {
+    await Promise.all(this.workers.map(async worker => await worker.restart(suspended)));
+  }
+
+  private resumeWorkers(): void {
+    this.sendMessage('resume');
   }
 
   private sendMessage(message: string): void {
@@ -91,9 +101,4 @@ class MainCommand {
     await this.stopWorkers();
     await this.ipc.stop();
   }
-}
-
-export async function main(options: Options): Promise<void> {
-  const main = new MainCommand(options);
-  await main.run();
 }

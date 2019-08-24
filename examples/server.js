@@ -1,10 +1,16 @@
-const { suspend, resume } = require('../');
+const { suspend, isSuspended } = require('../');
 const http = require('http');
 
 const server = http.createServer((req, res) => {
-  suspend(() => {
-    res.write('Hello world!\n');
-    res.end();
+  suspend().then(() => {
+    if (/^delete$/i.test(req.method)) {
+      res.write('Bye!\n');
+      res.end();
+      setTimeout(() => handleMessage('shutdown'), 100);
+    } else {
+      res.write('Hello world!\n');
+      res.end();
+    }
   });
 });
 
@@ -23,10 +29,13 @@ server.listen(listenOn, () => {
   } else {
     console.log(`Server is listening on ${listenOn}.`);
     console.log(`Run curl --unix-socket ${listenOn} http://my.app/ to see that it works.`);
-    console.log(
-      'Note that the server is started in suspended mode, so all requests will be queued ' +
-        'until you run "nodesockd resume".',
-    );
+
+    if (isSuspended()) {
+      console.log(
+        'Note that the server is started in suspended mode, so all requests will be queued ' +
+          'until you run "nodesockd resume".',
+      );
+    }
   }
 
   if (process.send) {
@@ -36,21 +45,12 @@ server.listen(listenOn, () => {
 });
 
 function handleMessage(message) {
-  switch (message) {
-    case 'shutdown':
-      console.log('Terminating server.');
-      server.close(err => {
-        err && console.error(err);
-        process.exit(err ? 1 : 0);
-      });
-      break;
+  if (message === 'shutdown') {
+    console.log('Terminating server.');
 
-    case 'resume':
-      resume();
-      break;
-
-    default:
-      console.warn('unknown action: "%s"', message);
-      break;
+    server.close(err => {
+      err && console.error(err);
+      process.exit(err ? 1 : 0);
+    });
   }
 }

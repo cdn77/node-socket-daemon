@@ -1,74 +1,158 @@
 #!/usr/bin/env node
 
-import * as program from 'commander';
-import { loadConfig, Options } from './config';
-import { main } from './commands/main';
-import { sendAction } from './commands/client';
+import * as yargs from 'yargs';
+import { Client } from './client';
+import { Daemon } from './daemon';
 
-const pkg = require('../package.json');
 process.umask(0o117);
 
-function append(value: string, list: string[]): string[] {
-  list.push(...value.split(/,/g));
-  return list;
-}
-
-async function run(command: Command, ...args: any[]): Promise<void> {
-  try {
-    const options = await loadConfig(program);
-    await command(options, ...args);
-  } catch (e) {
-    console.error(`Error: ${e.message || e}\n`);
-    program.outputHelp();
-    process.exit(1);
-  }
-}
-
-type Command = {
-  (options: Options, ...args: any[]): Promise<void>;
+const type = {
+  string: 'string' as 'string',
+  boolean: 'boolean' as 'boolean',
+  number: 'number' as 'number',
 };
 
-program
-  .version(pkg.version, '-v, --version')
-  .option('-c, --config <path>', 'Config file path')
-  .option('-s, --script <file>', 'Main script path')
-  .option('-l, --listen-var <name>', 'Listen env var name')
-  .option('-t, --tmp-dir <dir>', 'Temp directory path')
-  .option('-o, --socket-file <file>', 'Socket file name')
-  .option('-i, --ipc-file <file>', 'IPC file name')
-  .option('-w, --workers <workers>', 'Workers', parseInt)
-  .option('-e, --env <var>', 'Environment variable whitelist', append, []);
+const commonOptions = {
+  config: {
+    alias: 'c',
+    type: type.string,
+    description: 'Config file path',
+  },
+  ipcFile: {
+    alias: 'i',
+    type: type.string,
+    description: 'IPC file name',
+  },
+};
 
-program
-  .command('start')
-  .description('Start workers')
-  .action(async () => await run(sendAction, 'start'));
+const suspendOptions = {
+  suspended: {
+    alias: 'u',
+    type: type.boolean,
+    description: 'Start new workers in suspended mode',
+  },
+};
 
-program
-  .command('stop')
-  .description('Stop workers')
-  .action(async () => await run(sendAction, 'stop'));
+function createClientHandler<O>(handler: (client: Client, options: O) => Promise<void> | void) {
+  return async (rawOptions: O) => {
+    try {
+      const options = await Client.processOptions(rawOptions);
+      await handler(new Client(options), rawOptions);
+    } catch (e) {
+      console.error(e);
+      process.exit(1);
+    }
+  };
+}
 
-program
-  .command('restart')
-  .description('Restart workers')
-  .action(async () => await run(sendAction, 'restart'));
+function createDaemonHandler<O>(handler: (daemon: Daemon, options: O) => Promise<void> | void) {
+  return async (rawOptions: O) => {
+    try {
+      const options = await Daemon.processOptions(rawOptions);
+      await handler(new Daemon(options), rawOptions);
+    } catch (e) {
+      console.error(e);
+      process.exit(1);
+    }
+  };
+}
 
-program
-  .command('resume')
-  .description('Resume suspended workers')
-  .action(async () => await run(sendAction, 'send', 'resume'));
+yargs.command(
+  'start',
+  'Start workers',
+  {
+    ...commonOptions,
+    ...suspendOptions,
+  },
+  createClientHandler(async (client, options) => await client.start(options.suspended)),
+);
 
-program
-  .command('send <msg>')
-  .description('Send custom message to workers')
-  .action(async (msg: string) => await run(sendAction, 'send', msg));
+yargs.command(
+  'stop',
+  'Stop workers',
+  {
+    ...commonOptions,
+  },
+  createClientHandler(async client => await client.stop()),
+);
 
-program
-  .command('daemon')
-  .description('Run main daemon (default)')
-  .action(async () => await run(main));
+yargs.command(
+  'restart',
+  'Restart workers',
+  {
+    ...commonOptions,
+    ...suspendOptions,
+  },
+  createClientHandler(async (client, options) => await client.restart(options.suspended)),
+);
 
-const args = process.argv;
-args.some(arg => /^(start|stop|restart|resume|send|daemon)$/.test(arg)) || args.push('daemon');
-program.parse(args);
+yargs.command(
+  'resume',
+  'Resume suspended workers',
+  {
+    ...commonOptions,
+  },
+  createClientHandler(async client => await client.resume()),
+);
+
+yargs.command(
+  'send <msg>',
+  'Send custom message to workers',
+  {
+    ...commonOptions,
+    msg: {
+      type: type.string,
+      demandOption: true,
+    },
+  },
+  createClientHandler(async (client, options) => await client.sendMessage(options.msg)),
+);
+
+yargs.command(
+  ['daemon', '$0'],
+  'Run main daemon',
+  {
+    ...commonOptions,
+    script: {
+      alias: 's',
+      type: type.string,
+      description: 'Main script path',
+    },
+    listenVar: {
+      alias: 'l',
+      type: type.string,
+      description: 'Listen env var name',
+    },
+    tmpDir: {
+      alias: 't',
+      type: type.string,
+      description: 'Temp directory path',
+    },
+    socketFile: {
+      alias: 'o',
+      type: type.string,
+      description: 'Socket file name',
+    },
+    workers: {
+      alias: 'w',
+      type: type.number,
+      description: 'Number of workers to run',
+    },
+    env: {
+      alias: 'e',
+      array: true,
+      type: 'string',
+      description: 'Environment variable whitelist',
+    },
+  },
+  createDaemonHandler(async daemon => await daemon.run()),
+);
+
+yargs
+  .strict()
+  .demandCommand()
+  .alias({
+    h: 'help',
+    v: 'version',
+  })
+  .parse();

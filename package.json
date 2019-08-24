@@ -13,10 +13,11 @@
     "url": "https://github.com/cdn77/node-socket-daemon.git"
   },
   "dependencies": {
-    "commander": "^2.20.0"
+    "yargs": "^14.0.0"
   },
   "devDependencies": {
     "@types/node": "^12.6.8",
+    "@types/yargs": "^13.0.2",
     "husky": "^3.0.1",
     "lint-staged": "^9.2.1",
     "npm-run-all": "^4.1.5",

@@ -215,20 +215,21 @@ slightly delayed (that is if your migrations only take a second or two to run).
 In an Express context you could implement that like this:
 
 ```javascript
-const { suspendExpress, resume } = require('nodesockd');
+const { suspend } = require('nodesockd');
 
 // apply this as the first middleware in the pipeline
 // so that it is used for all requests:
-app.use(suspendExpress);
-
-// in your process.on('message') handler:
-if (message === 'resume') {
-  resume();
-}
+app.use(suspend.express);
 ```
 
+The `suspend()` function exported from `nodesockd` returns a Promise which you
+can await in your app to delay things until after migrations have been applied;
+the `suspend.express` middleware is a wrapper which makes this work with Express.
+The internal promise is resolved when the `resume` message is received (via
+`process.on('message')`). 
+
 Then in your deployment pipeline you need to:
- - restart workers using `nodesockd restart`
+ - restart workers using `nodesockd restart --suspended`
  - apply database migrations
  - resume workers using `nodesockd resume`
  
