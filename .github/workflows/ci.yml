@@ -1,8 +1,6 @@
 name: ci
 on:
-  push:
-    branches:
-      - master
+  - push
 jobs:
   ci:
     name: ci
