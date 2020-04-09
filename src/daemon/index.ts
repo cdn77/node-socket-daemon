@@ -30,7 +30,7 @@ export class Daemon {
   private setupSignalHandlers(): void {
     process.on('SIGTERM', this.terminate.bind(this));
     process.on('SIGINT', this.terminate.bind(this));
-    process.on('SIGHUP', this.restartWorkers.bind(this));
+    process.on('SIGHUP', this.restartWorkers.bind(this, false));
   }
 
   private createWorkers(): Worker[] {
