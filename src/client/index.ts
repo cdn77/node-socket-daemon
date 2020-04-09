@@ -3,7 +3,7 @@ import { ClientCliOptions, ClientOptions, processClientOptions } from './options
 
 export class Client {
   static async processOptions(options: ClientCliOptions): Promise<ClientOptions> {
-    return await processClientOptions(options);
+    return processClientOptions(options);
   }
 
   private readonly options: ClientOptions;
@@ -33,7 +33,7 @@ export class Client {
   }
 
   private async sendCommand(command: string, ...args: any[]): Promise<void> {
-    return new Promise<void>(resolve => {
+    return new Promise<void>((resolve) => {
       const ipc = createConnection(this.options.ipcPath);
 
       ipc.on('connect', () => {
@@ -42,7 +42,7 @@ export class Client {
 
       let buffer = '';
 
-      ipc.on('data', msg => {
+      ipc.on('data', (msg) => {
         buffer += msg.toString();
         const i = buffer.lastIndexOf('\n');
 

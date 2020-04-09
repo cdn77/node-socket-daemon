@@ -2,9 +2,9 @@
   "compilerOptions": {
     "outDir": "build",
     "module": "commonjs",
-    "target": "es2015",
+    "target": "es2019",
     "declaration": true,
-    "lib": ["esnext", "dom"],
+    "lib": ["es2019", "es2020.string", "es2020.symbol.wellknown"],
     "moduleResolution": "node",
     "rootDir": "src",
     "forceConsistentCasingInFileNames": true,

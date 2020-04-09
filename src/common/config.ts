@@ -11,13 +11,13 @@ const configOptions = {
   listenVar: 'string',
   ipcFile: 'string',
   workers: 'number',
-  env: (v: any): v is string[] => Array.isArray(v) && !v.some(v => typeof v !== 'string'),
+  env: (v: any): v is string[] => Array.isArray(v) && !v.some((v) => typeof v !== 'string'),
 };
 
 type COpts = typeof configOptions;
 
 export type Config = {
-  [O in keyof COpts]?: (COpts[O] extends 'string'
+  [O in keyof COpts]?: COpts[O] extends 'string'
     ? string
     : COpts[O] extends 'number'
     ? number
@@ -25,7 +25,7 @@ export type Config = {
     ? boolean
     : COpts[O] extends (v: any) => v is infer T
     ? T
-    : never);
+    : never;
 };
 
 export function resolveConfigPath(configFile: string | undefined): string | undefined {

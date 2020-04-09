@@ -1,63 +1,10 @@
-import { ChildProcess, fork } from 'child_process';
-import { promisify } from 'util';
 import * as fs from 'fs';
+import { promisify } from 'util';
+import { WorkerProcess } from './workerProcess';
 
 const unlink = promisify(fs.unlink);
 const symlink = promisify(fs.symlink);
 const rename = promisify(fs.rename);
-
-export type OnExitFn = {
-  (instance: WorkerInstance): void | Promise<void>;
-};
-
-export class WorkerInstance {
-  private readonly scriptPath: string;
-
-  private readonly env: Record<string, any>;
-
-  private readonly onExit: OnExitFn;
-
-  private process: ChildProcess;
-
-  constructor(
-    scriptPath: string,
-    env: Record<string, any>,
-    onExit: OnExitFn,
-  ) {
-    this.scriptPath = scriptPath;
-    this.env = env;
-    this.onExit = onExit;
-  }
-
-  async start(): Promise<void> {
-    return new Promise<void>(resolve => {
-      this.process = fork(this.scriptPath, [], {
-        stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
-        env: this.env,
-      });
-
-      this.process.on('exit', () => {
-        this.process.unref();
-        this.onExit(this);
-      });
-
-      this.process.on('message', message => {
-        message === 'online' && resolve();
-      });
-    });
-  }
-
-  async stop(): Promise<void> {
-    return await new Promise<void>(resolve => {
-      this.process.once('exit', () => resolve());
-      this.process.send('shutdown');
-    });
-  }
-
-  send(message: string): void {
-    this.process.send(message);
-  }
-}
 
 export class Worker {
   private readonly workerId: number;
@@ -72,7 +19,7 @@ export class Worker {
 
   private readonly socketPath: string;
 
-  private instance: WorkerInstance | undefined;
+  private process: WorkerProcess | undefined;
 
   private instanceId: number = 0;
 
@@ -94,19 +41,19 @@ export class Worker {
   }
 
   async start(suspended: boolean = false): Promise<void> {
-    if (this.instance) {
+    if (this.process) {
       return;
     }
 
     this.terminating = false;
     this.instanceId += 1;
-    const socketPath = this.formatInstanceSocketPath(this.instanceId);
+    const socketPath = this.formatProcessSocketPath(this.instanceId);
     const socketTmpPath = `${socketPath}.new`;
 
-    this.instance = new WorkerInstance(
+    this.process = new WorkerProcess(
       this.scriptPath,
       this.buildEnv(socketPath, suspended),
-      instance => this.handleInstanceDown(instance),
+      (process) => this.handleProcessDown(process),
     );
 
     try {
@@ -115,19 +62,19 @@ export class Worker {
       /* noop */
     }
 
-    await this.instance.start();
+    await this.process.start();
     await symlink(socketPath, socketTmpPath);
     await rename(socketTmpPath, this.socketPath);
   }
 
   async stop(): Promise<void> {
     this.terminating = true;
-    this.instance && (await this.instance.stop());
+    this.process && (await this.process.stop());
   }
 
   async restart(suspended: boolean = false): Promise<void> {
-    const old = this.instance;
-    this.instance = undefined;
+    const old = this.process;
+    this.process = undefined;
     await this.start(suspended);
     old && (await old.stop());
   }
@@ -137,12 +84,12 @@ export class Worker {
   }
 
   send(message: string): void {
-    this.instance && this.instance.send(message);
+    this.process && this.process.send(message);
   }
 
-  private async handleInstanceDown(instance: WorkerInstance): Promise<void> {
-    if (instance === this.instance) {
-      this.instance = undefined;
+  private async handleProcessDown(process: WorkerProcess): Promise<void> {
+    if (process === this.process) {
+      this.process = undefined;
 
       if (!this.terminating) {
         await this.start();
@@ -150,8 +97,8 @@ export class Worker {
     }
   }
 
-  private formatInstanceSocketPath(instanceId: number): string {
-    return `${this.formatSocketPath()}.${instanceId}`;
+  private formatProcessSocketPath(processId: number): string {
+    return `${this.formatSocketPath()}.${processId}`;
   }
 
   private formatSocketPath(): string {
@@ -162,7 +109,7 @@ export class Worker {
     const env: Record<string, any> = {};
 
     for (const key of this.env) {
-      if (process.env.hasOwnProperty(key)) {
+      if (key in process.env) {
         env[key] = process.env[key];
       }
     }

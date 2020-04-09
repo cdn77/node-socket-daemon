@@ -1,5 +1,5 @@
-import { loadConfig, resolveBasePath, resolveConfigPath, resolveIpcPath } from '../common/config';
 import * as path from 'path';
+import { loadConfig, resolveBasePath, resolveConfigPath, resolveIpcPath } from '../common/config';
 
 export type DaemonCliOptions = {
   config?: string;

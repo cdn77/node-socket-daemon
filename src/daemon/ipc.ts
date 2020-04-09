@@ -30,10 +30,10 @@ export class Ipc {
     this.server = createServer();
     this.server.listen(this.socketPath);
 
-    this.server.on('connection', conn => {
+    this.server.on('connection', (conn) => {
       let buffer = '';
 
-      conn.on('data', async msg => {
+      conn.on('data', async (msg) => {
         buffer += msg.toString();
 
         try {
@@ -41,7 +41,7 @@ export class Ipc {
           buffer = '';
 
           try {
-            await this.handleCommand(cmd, args, msg => conn.write(msg));
+            await this.handleCommand(cmd, args, (msg) => conn.write(msg));
           } catch (e) {
             conn.write(`Error: ${e}`);
           }
@@ -56,9 +56,11 @@ export class Ipc {
 
   async stop(): Promise<void> {
     if (this.server) {
-      return await new Promise<void>((resolve, reject) =>
-        this.server.close(err => (err ? reject(err) : resolve())),
+      return new Promise<void>((resolve, reject) =>
+        this.server.close((err) => (err ? reject(err) : resolve())),
       );
+    } else {
+      return Promise.resolve();
     }
   }
 }

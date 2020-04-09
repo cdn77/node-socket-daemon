@@ -1,11 +1,11 @@
-let promise: Promise<void> | undefined = undefined;
-let resolve: (() => any) | undefined = undefined;
-let workerId: number | undefined = undefined;
+let promise: Promise<void> | undefined;
+let resolve: (() => any) | undefined;
+let workerId: number | undefined;
 
 if (process.send) {
   if (process.env.NODESOCKD_SUSPENDED === 'true') {
-    promise = new Promise(r => (resolve = r));
-    process.on('message', msg => msg === 'resume' && resume());
+    promise = new Promise((r) => (resolve = r));
+    process.on('message', (msg) => msg === 'resume' && resume());
   }
 
   if (process.env.NODESOCKD_WORKER_ID !== undefined) {
@@ -15,7 +15,8 @@ if (process.send) {
 
 function resume(): void {
   const r = resolve;
-  promise = resolve = undefined;
+  promise = undefined;
+  resolve = undefined;
   r && r();
 }
 

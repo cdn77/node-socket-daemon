@@ -64,7 +64,7 @@ yargs.command(
     ...commonOptions,
     ...suspendOptions,
   },
-  createClientHandler(async (client, options) => await client.start(options.suspended)),
+  createClientHandler(async (client, options) => client.start(options.suspended)),
 );
 
 yargs.command(
@@ -73,7 +73,7 @@ yargs.command(
   {
     ...commonOptions,
   },
-  createClientHandler(async client => await client.stop()),
+  createClientHandler(async (client) => client.stop()),
 );
 
 yargs.command(
@@ -83,7 +83,7 @@ yargs.command(
     ...commonOptions,
     ...suspendOptions,
   },
-  createClientHandler(async (client, options) => await client.restart(options.suspended)),
+  createClientHandler(async (client, options) => client.restart(options.suspended)),
 );
 
 yargs.command(
@@ -92,7 +92,7 @@ yargs.command(
   {
     ...commonOptions,
   },
-  createClientHandler(async client => await client.resume()),
+  createClientHandler(async (client) => client.resume()),
 );
 
 yargs.command(
@@ -105,7 +105,7 @@ yargs.command(
       demandOption: true,
     },
   },
-  createClientHandler(async (client, options) => await client.sendMessage(options.msg)),
+  createClientHandler(async (client, options) => client.sendMessage(options.msg)),
 );
 
 yargs.command(
@@ -145,7 +145,7 @@ yargs.command(
       description: 'Environment variable whitelist',
     },
   },
-  createDaemonHandler(async daemon => await daemon.run()),
+  createDaemonHandler(async (daemon) => daemon.run()),
 );
 
 yargs

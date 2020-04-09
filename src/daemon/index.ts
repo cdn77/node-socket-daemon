@@ -4,7 +4,7 @@ import { DaemonCliOptions, DaemonOptions, processDaemonOptions } from './options
 
 export class Daemon {
   static async processOptions(options: DaemonCliOptions): Promise<DaemonOptions> {
-    return await processDaemonOptions(options);
+    return processDaemonOptions(options);
   }
 
   private options: DaemonOptions;
@@ -16,9 +16,8 @@ export class Daemon {
   constructor(options: DaemonOptions) {
     this.options = options;
     this.workers = this.createWorkers();
-    this.ipc = new Ipc(
-      this.options.ipcPath,
-      async (cmd, args, log) => await this.handleCommand(cmd, args, log),
+    this.ipc = new Ipc(this.options.ipcPath, async (cmd, args, log) =>
+      this.handleCommand(cmd, args, log),
     );
   }
 
@@ -78,15 +77,15 @@ export class Daemon {
   }
 
   private async startWorkers(suspended: boolean = false): Promise<void> {
-    await Promise.all(this.workers.map(async worker => await worker.start(suspended)));
+    await Promise.all(this.workers.map(async (worker) => worker.start(suspended)));
   }
 
   private async stopWorkers(): Promise<void> {
-    await Promise.all(this.workers.map(async worker => await worker.stop()));
+    await Promise.all(this.workers.map(async (worker) => worker.stop()));
   }
 
   private async restartWorkers(suspended: boolean = false): Promise<void> {
-    await Promise.all(this.workers.map(async worker => await worker.restart(suspended)));
+    await Promise.all(this.workers.map(async (worker) => worker.restart(suspended)));
   }
 
   private resumeWorkers(): void {
@@ -94,7 +93,7 @@ export class Daemon {
   }
 
   private sendMessage(message: string): void {
-    this.workers.forEach(worker => worker.send(message));
+    this.workers.forEach((worker) => worker.send(message));
   }
 
   private async terminate(): Promise<void> {
