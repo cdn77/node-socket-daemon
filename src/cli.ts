@@ -144,6 +144,11 @@ yargs.command(
       type: 'string',
       description: 'Environment variable whitelist',
     },
+    outputPrefix: {
+      alias: 'p',
+      type: type.string,
+      description: 'Prefix format string for stdout and stderr of workers',
+    },
   },
   createDaemonHandler(async (daemon) => daemon.run()),
 );

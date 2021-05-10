@@ -1,4 +1,4 @@
-# Node.js Socket Daemon 
+# Node.js Socket Daemon
 
 This tool is the missing link between a Nginx reverse proxy and a Node.js backend service.
 Typically setups like this bind the backend service to a port on the loopback interface,
@@ -71,7 +71,7 @@ An example of how this would be done in an Express app:
 const server = app.listen(process.env.LISTEN_ON, () => {
   if (process.send) {
     process.send('online');
-    
+
     process.on('message', message => {
       if (message === 'shutdown') {
         server.close(() => process.exit(0));
@@ -92,13 +92,17 @@ Once your app is ready for prime time, you can run it using the `nodesockd` comm
 The command has the following options:
 
  - `-s` or `--script`: path to the main script file of your app
- - `-e` or `--listen-var`: name of the environment variable defining the socket path
+ - `-l` or `--listen-var`: name of the environment variable defining the socket path
    (defaults to `LISTEN_ON`)
  - `-t` or `--tmp-dir`: path to the temp directory created previously
  - `-o` or `--socket-file`: socket file name pattern (more on that shorty)
  - `-i` or `--ipc-file`: name of an [IPC file][2] the tool uses internally
    (defaults to `nodesockd.ipc`)
  - `-w` or `--workers`: number of workers to launch and oversee (defaults to 1)
+ - `-e` or `--env`: whitelist of environment variables to pass down to workers;
+   may be specified multiple times
+ - `-p` or `--output-prefix`: format string for `stdout` and `stderr` prefix
+   for workers; can include `{date}`, `{worker}` and `{instance}` placeholders
  - `-c` or `--config`: path to a config file where you can define all of the above
 
 You can put the options in a JSON config file; the config keys are `camelCase` versions
@@ -133,9 +137,9 @@ Example configuration for a single worker:
 server {
   listen 80;
   listen [::]:80;
-  
+
   server_name myapp.com;
-  
+
   location / {
     proxy_pass http://unix:/var/run/myapp/myapp.sock:/;
     proxy_set_header Host $host;
@@ -156,9 +160,9 @@ upstream myapp {
 server {
   listen 80;
   listen [::]:80;
-  
+
   server_name myapp.com;
-  
+
   location / {
     proxy_pass http://myapp;
     proxy_set_header Host $host;
@@ -180,9 +184,9 @@ your Nginx configuration, you can start the app using the following command:
 nodesockd --config /path/to/your/app/nodesockd.json
 ```
 
-Use `/path/to/your/app/node_modules/.bin/nodesockd` instead of `nodesockd`
-if you installed `nodesockd` as a local dependency in your project
-instead of globally.
+Use `/path/to/your/app/node_modules/.bin/nodesockd` or `npx nodesockd`
+instead of `nodesockd` if you installed `nodesockd` as a local dependency
+in your project instead of globally.
 
 The workers can be started, stopped and restarted using `nodesockd start`,
 `nodesockd stop` and `nodesockd restart`, respectively. In order for these
@@ -194,7 +198,7 @@ file will be created in the `tmpDir` directory.
 
 ### Atomic deployment with database migrations
 
-Chances are that your app uses some kind of a database backend and also that
+Chances are that your app uses some kind of database backend and also that
 your database backend sometimes needs to be updated as part of the deployment
 pipeline of your app. You may be using something like [TypeORM][3] and its
 migrations, which means that your deployment pipeline would include building
@@ -226,13 +230,13 @@ The `suspend()` function exported from `nodesockd` returns a Promise which you
 can await in your app to delay things until after migrations have been applied;
 the `suspend.express` middleware is a wrapper which makes this work with Express.
 The internal promise is resolved when the `resume` message is received (via
-`process.on('message')`). 
+`process.on('message')`).
 
 Then in your deployment pipeline you need to:
  - restart workers using `nodesockd restart --suspended`
  - apply database migrations
  - resume workers using `nodesockd resume`
- 
+
 Of course if your app is a single-page app it's still possible that some
 of your users will have an older version of the front-end code loaded
 in their browser, which may lead to conflicts with a newer backend API,

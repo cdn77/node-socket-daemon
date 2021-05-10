@@ -17,6 +17,8 @@ export class Worker {
 
   private readonly env: string[];
 
+  private readonly outputPrefix?: string;
+
   private readonly socketPath: string;
 
   private process: WorkerProcess | undefined;
@@ -31,6 +33,7 @@ export class Worker {
     socketPathPattern: string,
     listenVar: string,
     env: string[] = [],
+    outputPrefix?: string,
   ) {
     this.workerId = workerId;
     this.scriptPath = scriptPath;
@@ -38,6 +41,7 @@ export class Worker {
     this.listenVar = listenVar;
     this.env = env;
     this.socketPath = this.formatSocketPath();
+    this.outputPrefix = outputPrefix;
   }
 
   async start(suspended: boolean = false): Promise<void> {
@@ -54,6 +58,7 @@ export class Worker {
       this.scriptPath,
       this.buildEnv(socketPath, suspended),
       (process) => this.handleProcessDown(process),
+      this.formatOutputPrefix(this.instanceId),
     );
 
     try {
@@ -121,5 +126,13 @@ export class Worker {
       NODESOCKD_SUSPENDED: suspended ? 'true' : '',
       [this.listenVar]: socketPath,
     };
+  }
+
+  private formatOutputPrefix(processId: number): string | undefined {
+    return this.outputPrefix
+      ? this.outputPrefix.replace(/{(worker|instance)}/g, (_, k) =>
+          k === 'worker' ? this.workerId.toString() : processId.toString(),
+        )
+      : undefined;
   }
 }

@@ -41,7 +41,7 @@ export class Ipc {
           buffer = '';
 
           try {
-            await this.handleCommand(cmd, args, (msg) => conn.write(msg));
+            await this.handleCommand(cmd, args, (m) => conn.write(m));
           } catch (e) {
             conn.write(`Error: ${e}`);
           }

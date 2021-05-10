@@ -3,10 +3,12 @@ const http = require('http');
 
 const server = http.createServer((req, res) => {
   suspend().then(() => {
+    console.log('HTTP/%s %s %s', req.httpVersion, req.method.toUpperCase(), req.url);
+
     if (/^delete$/i.test(req.method)) {
       res.write('Bye!\n');
       res.end();
-      setTimeout(() => handleMessage('shutdown'), 100);
+      setTimeout(() => shutdown(), 100);
     } else {
       res.write('Hello world!\n');
       res.end();
@@ -38,6 +40,9 @@ server.listen(listenOn, () => {
     }
   }
 
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+
   if (process.send) {
     process.on('message', handleMessage);
     process.send('online');
@@ -46,11 +51,15 @@ server.listen(listenOn, () => {
 
 function handleMessage(message) {
   if (message === 'shutdown') {
-    console.log('Terminating server.');
-
-    server.close(err => {
-      err && console.error(err);
-      process.exit(err ? 1 : 0);
-    });
+    shutdown();
   }
+}
+
+function shutdown() {
+  console.log('Terminating server.');
+
+  server.close(err => {
+    err && console.error(err);
+    process.exit(err ? 1 : 0);
+  });
 }

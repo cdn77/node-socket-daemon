@@ -44,6 +44,7 @@ export class Daemon {
             this.options.socketPathPattern,
             this.options.listenVar,
             this.options.env,
+            this.options.outputPrefix,
           ),
       );
   }

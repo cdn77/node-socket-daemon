@@ -11,7 +11,8 @@ const configOptions = {
   listenVar: 'string',
   ipcFile: 'string',
   workers: 'number',
-  env: (v: any): v is string[] => Array.isArray(v) && !v.some((v) => typeof v !== 'string'),
+  env: (v: any): v is string[] => Array.isArray(v) && !v.some((i) => typeof i !== 'string'),
+  outputPrefix: 'string',
 };
 
 type COpts = typeof configOptions;

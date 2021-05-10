@@ -10,6 +10,7 @@ export type DaemonCliOptions = {
   ipcFile?: string;
   workers?: number;
   env?: string[];
+  outputPrefix?: string;
 };
 
 export type DaemonOptions = {
@@ -19,6 +20,7 @@ export type DaemonOptions = {
   socketPathPattern: string;
   listenVar: string;
   env: string[];
+  outputPrefix?: string;
 };
 
 export async function processDaemonOptions(options: DaemonCliOptions): Promise<DaemonOptions> {
@@ -43,5 +45,6 @@ export async function processDaemonOptions(options: DaemonCliOptions): Promise<D
     ),
     workers: options.workers || config.workers || 1,
     env: options.env || config.env || [],
+    outputPrefix: options.outputPrefix || config.outputPrefix || undefined,
   };
 }
