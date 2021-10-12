@@ -1,3 +1,5 @@
+import { execSync } from 'child_process';
+import { realpathSync } from 'fs';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -29,12 +31,31 @@ export type Config = {
     : never;
 };
 
+function resolveCwd(): string {
+  const candidates = [() => process.env.PWD, () => execSync('pwd').toString().trim()];
+  const cwd = process.cwd();
+
+  for (const candidate of candidates) {
+    try {
+      const wd = candidate();
+
+      if (wd && realpathSync(wd) === cwd) {
+        return wd;
+      }
+    } catch (e) {
+      // noop
+    }
+  }
+
+  return cwd;
+}
+
 export function resolveConfigPath(configFile: string | undefined): string | undefined {
-  return configFile ? path.resolve(process.cwd(), configFile) : undefined;
+  return configFile ? path.resolve(resolveCwd(), configFile) : undefined;
 }
 
 export function resolveBasePath(configPath: string | undefined): string {
-  return configPath ? path.dirname(configPath) : process.cwd();
+  return configPath ? path.dirname(configPath) : resolveCwd();
 }
 
 export async function loadConfig(configPath: string | undefined): Promise<Config> {
