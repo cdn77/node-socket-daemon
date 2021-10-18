@@ -9,6 +9,8 @@ const rename = promisify(fs.rename);
 export class Worker {
   private readonly workerId: number;
 
+  private readonly cwd: string;
+
   private readonly scriptPath: string;
 
   private readonly socketPathPattern: string;
@@ -29,6 +31,7 @@ export class Worker {
 
   constructor(
     workerId: number,
+    cwd: string,
     scriptPath: string,
     socketPathPattern: string,
     listenVar: string,
@@ -36,6 +39,7 @@ export class Worker {
     outputPrefix?: string,
   ) {
     this.workerId = workerId;
+    this.cwd = cwd;
     this.scriptPath = scriptPath;
     this.socketPathPattern = socketPathPattern;
     this.listenVar = listenVar;
@@ -55,6 +59,7 @@ export class Worker {
     const socketTmpPath = `${socketPath}.new`;
 
     this.process = new WorkerProcess(
+      this.cwd,
       this.scriptPath,
       this.buildEnv(socketPath, suspended),
       (process) => this.handleProcessDown(process),

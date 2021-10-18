@@ -31,7 +31,7 @@ export type Config = {
     : never;
 };
 
-function resolveCwd(): string {
+export function resolveCwd(): string {
   const candidates = [() => process.env.PWD, () => execSync('pwd').toString().trim()];
   const cwd = process.cwd();
 

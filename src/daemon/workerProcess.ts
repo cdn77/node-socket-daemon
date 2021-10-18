@@ -7,6 +7,8 @@ export type OnExitFn = {
 };
 
 export class WorkerProcess {
+  private readonly cwd: string;
+
   private readonly scriptPath: string;
 
   private readonly env: Record<string, any>;
@@ -18,11 +20,13 @@ export class WorkerProcess {
   private process: ChildProcess;
 
   constructor(
+    cwd: string,
     scriptPath: string,
     env: Record<string, any>,
     onExit: OnExitFn,
     outputPrefix?: string,
   ) {
+    this.cwd = cwd;
     this.scriptPath = scriptPath;
     this.env = env;
     this.onExit = onExit;
@@ -32,6 +36,7 @@ export class WorkerProcess {
   async start(): Promise<void> {
     return new Promise<void>((resolve) => {
       this.process = fork(this.scriptPath, [], {
+        cwd: this.cwd,
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
         env: this.env,
       });

@@ -1,3 +1,4 @@
+import { resolveCwd } from '../common/config';
 import { Worker } from './worker';
 import { Ipc } from './ipc';
 import { DaemonCliOptions, DaemonOptions, processDaemonOptions } from './options';
@@ -9,12 +10,15 @@ export class Daemon {
 
   private options: DaemonOptions;
 
+  private readonly cwd: string;
+
   private readonly workers: Worker[];
 
   private readonly ipc: Ipc;
 
   constructor(options: DaemonOptions) {
     this.options = options;
+    this.cwd = resolveCwd();
     this.workers = this.createWorkers();
     this.ipc = new Ipc(this.options.ipcPath, async (cmd, args, log) =>
       this.handleCommand(cmd, args, log),
@@ -40,6 +44,7 @@ export class Daemon {
         (_, id) =>
           new Worker(
             id,
+            this.cwd,
             this.options.scriptPath,
             this.options.socketPathPattern,
             this.options.listenVar,
