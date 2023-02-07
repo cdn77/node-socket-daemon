@@ -33,8 +33,8 @@ const suspendOptions = {
   },
 };
 
-function createClientHandler<O>(handler: (client: Client, options: O) => Promise<void> | void) {
-  return async (rawOptions: O) => {
+function createClientHandler(handler: (client: Client, options: any) => Promise<void> | void) {
+  return async (rawOptions: any) => {
     try {
       const options = await Client.processOptions(rawOptions);
       await handler(new Client(options), rawOptions);
@@ -45,8 +45,8 @@ function createClientHandler<O>(handler: (client: Client, options: O) => Promise
   };
 }
 
-function createDaemonHandler<O>(handler: (daemon: Daemon, options: O) => Promise<void> | void) {
-  return async (rawOptions: O) => {
+function createDaemonHandler(handler: (daemon: Daemon, options: any) => Promise<void> | void) {
+  return async (rawOptions: any) => {
     try {
       const options = await Daemon.processOptions(rawOptions);
       await handler(new Daemon(options), rawOptions);

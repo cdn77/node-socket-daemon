@@ -2,7 +2,7 @@ import { ChildProcess, fork } from 'child_process';
 import { Readable, Writable } from 'stream';
 import { OutputProcessor } from './outputProcessor';
 
-export type OnExitFn = {
+export type WorkerProcessCallbackFn = {
   (process: WorkerProcess): void | Promise<void>;
 };
 
@@ -13,7 +13,9 @@ export class WorkerProcess {
 
   private readonly env: Record<string, any>;
 
-  private readonly onExit: OnExitFn;
+  private readonly onExit: WorkerProcessCallbackFn;
+
+  private readonly onRestartRequest: WorkerProcessCallbackFn;
 
   private readonly outputPrefix?: string;
 
@@ -23,13 +25,15 @@ export class WorkerProcess {
     cwd: string,
     scriptPath: string,
     env: Record<string, any>,
-    onExit: OnExitFn,
+    onExit: WorkerProcessCallbackFn,
+    onRestartRequest: WorkerProcessCallbackFn,
     outputPrefix?: string,
   ) {
     this.cwd = cwd;
     this.scriptPath = scriptPath;
     this.env = env;
     this.onExit = onExit;
+    this.onRestartRequest = onRestartRequest;
     this.outputPrefix = outputPrefix;
   }
 
@@ -55,7 +59,10 @@ export class WorkerProcess {
       });
 
       this.process.on('message', (message) => {
-        message === 'online' && resolve();
+        switch (message) {
+          case 'online': resolve(); break;
+          case 'restart': this.onRestartRequest(this); break;
+        }
       });
     });
   }

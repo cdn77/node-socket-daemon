@@ -14,30 +14,19 @@
     "url": "https://github.com/cdn77/node-socket-daemon.git"
   },
   "dependencies": {
-    "yargs": "^17.0.1"
+    "yargs": "^17.6.2"
   },
   "devDependencies": {
-    "@types/node": "^12.20.12",
-    "@types/yargs": "^16.0.1",
-    "@typescript-eslint/eslint-plugin": "^4.22.1",
-    "eslint": "^7.26.0",
-    "eslint-config-airbnb": "^18.2.1",
-    "eslint-config-airbnb-typescript": "^12.3.1",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-import": "^2.22.1",
-    "eslint-plugin-prettier": "^3.4.0",
-    "husky": "^6.0.0",
-    "lint-staged": "^11.0.0",
+    "@types/node": "^16.18.12",
+    "@types/yargs": "^17.0.22",
     "npm-run-all": "^4.1.5",
-    "prettier": "^2.3.0",
-    "rimraf": "^3.0.2",
-    "typescript": "^4.2.4"
+    "rimraf": "^4.1.2",
+    "typescript": "^4.9.5"
   },
   "scripts": {
     "build:cleanup": "rimraf build/*",
     "build:compile": "tsc",
     "build": "run-s build:cleanup build:compile",
-    "lint": "eslint 'src/**/*.ts'",
     "examples": "node --trace-warnings --unhandled-rejections=strict build/cli.js --config examples/server.config.json",
     "start": "run-s build examples"
   },
@@ -49,10 +38,5 @@
   "files": [
     "build/**/*.js",
     "build/index.d.ts"
-  ],
-  "lint-staged": {
-    "src/**/*.ts": [
-      "eslint --fix"
-    ]
-  }
+  ]
 }

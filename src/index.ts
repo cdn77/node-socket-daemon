@@ -34,6 +34,15 @@ export function getWorkerId(): number | undefined {
   return workerId;
 }
 
+export function restart(): boolean {
+  if (process.send) {
+    process.send('restart');
+    return true;
+  }
+
+  return false;
+}
+
 suspend.express = async (req: any, res: any, next: () => any): Promise<void> => {
   await suspend();
   next();

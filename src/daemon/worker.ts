@@ -63,6 +63,7 @@ export class Worker {
       this.scriptPath,
       this.buildEnv(socketPath, suspended),
       (process) => this.handleProcessDown(process),
+      (process) => this.handleRestartRequest(process),
       this.formatOutputPrefix(this.instanceId),
     );
 
@@ -104,6 +105,12 @@ export class Worker {
       if (!this.terminating) {
         await this.start();
       }
+    }
+  }
+
+  private async handleRestartRequest(process: WorkerProcess): Promise<void> {
+    if (process === this.process) {
+      await this.restart();
     }
   }
 
