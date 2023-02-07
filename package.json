@@ -1,6 +1,6 @@
 {
   "name": "nodesockd",
-  "version": "1.3.4",
+  "version": "1.4.0",
   "description": "Bridges a Nginx reverse proxy to a Node.js service using Unix sockets",
   "homepage": "https://github.com/cdn77/node-socket-daemon",
   "license": "MIT",
