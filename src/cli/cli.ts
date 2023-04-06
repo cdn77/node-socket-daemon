@@ -20,12 +20,15 @@ yargs
   .command(commands.upgradeDaemon)
   .command(commands.terminateDaemon)
   .demandCommand()
-  .fail((msg, err) => {
+  .fail((msg, err, yargs) => {
     if (err instanceof ZodError) {
       console.log(`Invalid config:\n - ${err.errors.map((e) => e.message).join('\n - ')}`);
-    } else {
+    } else if (err) {
       console.log(`Unhandled application error:`);
       console.log(err);
+    } else {
+      yargs.showHelp();
+      console.log('\n' + msg);
     }
 
     console.log('');
@@ -33,4 +36,5 @@ yargs
   })
   .strict()
   .help()
+  .alias('h', 'help')
   .parse();
