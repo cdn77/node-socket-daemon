@@ -1,0 +1,4 @@
+script: ./server.js
+tmpDir: .
+options:
+  stdout: app.log

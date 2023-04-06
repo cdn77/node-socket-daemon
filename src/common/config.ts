@@ -1,89 +1,131 @@
-import { execSync } from 'child_process';
-import { realpathSync } from 'fs';
-import { promisify } from 'util';
-import * as fs from 'fs';
-import * as path from 'path';
+import { dirname, resolve } from 'path';
+import { readFile } from 'fs/promises';
+import { load } from 'js-yaml';
+import { z } from 'zod';
 
-const readFile = promisify(fs.readFile);
+const partialOptionsSchema = z.strictObject({
+  spawnTimeout: z.number().int().optional(),
+  onlineTimeout: z.number().int().optional(),
+  shutdownTimeout: z.number().int().optional(),
+  stdout: z.string().optional(),
+  stderr: z.union([z.string(), z.boolean()]).optional(),
+});
 
-const configOptions = {
-  script: 'string',
-  tmpDir: 'string',
-  socketFile: 'string',
-  listenVar: 'string',
-  ipcFile: 'string',
-  workers: 'number',
-  env: (v: any): v is string[] => Array.isArray(v) && !v.some((i) => typeof i !== 'string'),
-  outputPrefix: 'string',
-};
+const partialConfigSchema = z.strictObject({
+  extends: z.string().optional(),
+  name: z.string().optional(),
+  script: z.string().optional(),
+  tmpDir: z.string().optional(),
+  socketFile: z.string().optional(),
+  ipcFile: z.string().optional(),
+  workers: z.number().int().optional(),
+  standby: z.number().int().optional(),
+  options: partialOptionsSchema.optional(),
+  env: z.array(z.string()).optional(),
+  debug: z.boolean().optional(),
+});
 
-type COpts = typeof configOptions;
+const finalOptionsSchema = z.strictObject({
+  spawnTimeout: z.number().int().default(2000),
+  onlineTimeout: z.number().int().default(10000),
+  shutdownTimeout: z.number().int().default(10000),
+  stdout: z.string().optional(),
+  stderr: z.union([z.string(), z.boolean()]).optional(),
+});
 
-export type Config = {
-  [O in keyof COpts]?: COpts[O] extends 'string'
-    ? string
-    : COpts[O] extends 'number'
-    ? number
-    : COpts[O] extends 'boolean'
-    ? boolean
-    : COpts[O] extends (v: any) => v is infer T
-    ? T
-    : never;
-};
+const finalConfigSchema = z.strictObject({
+  name: z.string().default('app'),
+  script: z.string(),
+  tmpDir: z.string(),
+  socketFile: z.string().default('app.{worker}.sock'),
+  ipcFile: z.string().default('nodesockd.ipc'),
+  workers: z.number().int().default(1),
+  standby: z.number().int().default(0),
+  options: finalOptionsSchema.default({}),
+  env: z.array(z.string()).default([]),
+  debug: z.boolean().default(false),
+});
 
-export function resolveCwd(): string {
-  const candidates = [() => process.env.PWD, () => execSync('pwd').toString().trim()];
-  const cwd = process.cwd();
+type PartialConfig = z.infer<typeof partialConfigSchema>;
+export type Config = z.infer<typeof finalConfigSchema>;
+export type WorkerOptions = z.infer<typeof finalOptionsSchema>;
+
+
+function resolveConfigPath(root: string, configFile: string): string {
+  if (/^[.\/]/.test(configFile)) {
+    return resolve(root, configFile);
+  }
+
+  try {
+    return require.resolve(configFile);
+  } catch {
+    return resolve(root, configFile);
+  }
+}
+
+const globalCandidates = [
+  './.nodesockd.local.yml',
+  './.nodesockd.local.yaml',
+  './nodesockd.local.yml',
+  './nodesockd.local.yaml',
+  './.nodesockd.yml',
+  './.nodesockd.yaml',
+  './nodesockd.yml',
+  './nodesockd.yaml',
+];
+
+async function loadConfigFile(root: string, candidates: string | string[]): Promise<[config: PartialConfig, path: string]> {
+  Array.isArray(candidates) || (candidates = [candidates]);
 
   for (const candidate of candidates) {
     try {
-      const wd = candidate();
-
-      if (wd && realpathSync(wd) === cwd) {
-        return wd;
-      }
+      const configFile = resolveConfigPath(root, candidate);
+      const contents = await readFile(configFile, 'utf-8');
+      return [partialConfigSchema.parse(load(contents)), configFile];
     } catch (e) {
-      // noop
-    }
-  }
-
-  return cwd;
-}
-
-export function resolveConfigPath(configFile: string | undefined): string | undefined {
-  return configFile ? path.resolve(resolveCwd(), configFile) : undefined;
-}
-
-export function resolveBasePath(configPath: string | undefined): string {
-  return configPath ? path.dirname(configPath) : resolveCwd();
-}
-
-export async function loadConfig(configPath: string | undefined): Promise<Config> {
-  if (configPath) {
-    const config = JSON.parse(await readFile(configPath, 'utf-8'));
-
-    for (const key of Object.keys(config)) {
-      if (!(key in configOptions)) {
-        throw new TypeError(`Unknown config option '${key}'`);
-      } else if (
-        typeof configOptions[key] === 'function'
-          ? !configOptions[key](config[key])
-          : typeof config[key] !== configOptions[key]
-      ) {
-        throw new TypeError(`Invalid config option '${key}'`);
+      if (e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' && e.code === 'ENOENT') {
+        continue;
       }
-    }
 
-    return config;
+      throw e;
+    }
   }
 
-  return {};
+  throw new Error(
+    candidates.length > 1
+      ? 'No config file specified and no default config file exists'
+      : `Config file '${candidates.join('')}' does not exist`,
+  );
 }
 
-export function resolveIpcPath(
-  basePath: string,
-  tmpDir: string | undefined | null,
-  ipcFile: string | undefined | null,
-): string {
-  return path.resolve(basePath, tmpDir || '', ipcFile || 'nodesockd.ipc');
+function resolvePaths(config: Config, file: string): [config: Config, file: string] {
+  const root = dirname(file);
+
+  // paths relative to config file
+  config.script = resolve(root, config.script);
+  config.tmpDir = resolve(root, config.tmpDir);
+  typeof config.options?.stdout === 'string' && (config.options.stdout = resolve(root, config.options.stdout));
+  typeof config.options?.stderr === 'string' && (config.options.stderr = resolve(root, config.options.stderr));
+
+  // paths relative to tmpDir
+  config.ipcFile = resolve(config.tmpDir, config.ipcFile);
+  config.socketFile = resolve(config.tmpDir, config.socketFile);
+
+  return [config, file];
+}
+
+export async function loadConfig(cwd: string, configPath?: string): Promise<[config: Config, file: string]> {
+  let candidates: string | string[] = configPath ?? globalCandidates;
+  let config: PartialConfig = { options: {} };
+  let configFile: string | undefined = undefined;
+
+  do {
+    const [{ extends: next, options = {}, ...cfg }, file] = await loadConfigFile(cwd, candidates);
+    config = { ...cfg, ...config, options: { ...options, ...config.options } };
+    configFile ??= file;
+    candidates = next as any;
+    cwd = dirname(file);
+  } while (candidates);
+
+  return resolvePaths(finalConfigSchema.parse(config), configFile);
 }

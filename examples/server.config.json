@@ -1,4 +1,0 @@
-{
-  "script": "./server.js",
-  "outputPrefix": "[{date}] [{worker}/{instance}]"
-}

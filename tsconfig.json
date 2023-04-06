@@ -1,18 +1,16 @@
 {
   "compilerOptions": {
-    "outDir": "build",
-    "module": "commonjs",
-    "target": "es2019",
+    "outDir": "dist",
+    "module": "CommonJS",
+    "target": "ES2020",
     "declaration": true,
-    "lib": ["es2019", "es2020.string", "es2020.symbol.wellknown"],
-    "moduleResolution": "node",
-    "rootDir": "src",
+    "lib": ["ES2020"],
+    "moduleResolution": "NodeNext",
     "forceConsistentCasingInFileNames": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
-    "suppressImplicitAnyIndexErrors": true,
     "noUnusedLocals": true,
     "types": ["node"],
     "skipLibCheck": true

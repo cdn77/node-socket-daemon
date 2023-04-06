@@ -1,6 +1,6 @@
 {
   "name": "nodesockd",
-  "version": "1.4.0",
+  "version": "2.0.0-rc.1",
   "description": "Bridges a Nginx reverse proxy to a Node.js service using Unix sockets",
   "homepage": "https://github.com/cdn77/node-socket-daemon",
   "license": "MIT",
@@ -14,29 +14,37 @@
     "url": "https://github.com/cdn77/node-socket-daemon.git"
   },
   "dependencies": {
-    "yargs": "^17.6.2"
+    "@debugr/console": "^3.0.0-rc.8",
+    "@debugr/core": "^3.0.0-rc.9",
+    "js-yaml": "^4.1.0",
+    "uuid": "^9.0.0",
+    "yargs": "^17.7.1",
+    "zod": "^3.21.4"
   },
   "devDependencies": {
-    "@types/node": "^16.18.12",
-    "@types/yargs": "^17.0.22",
-    "npm-run-all": "^4.1.5",
-    "rimraf": "^4.1.2",
-    "typescript": "^4.9.5"
-  },
-  "scripts": {
-    "build:cleanup": "rimraf build/*",
-    "build:compile": "tsc",
-    "build": "run-s build:cleanup build:compile",
-    "examples": "node --trace-warnings --unhandled-rejections=strict build/cli.js --config examples/server.config.json",
-    "start": "run-s build examples"
+    "@tsconfig/node18": "^1.0.1",
+    "@types/js-yaml": "^4.0.5",
+    "@types/node": "^18.15.10",
+    "@types/uuid": "^9.0.1",
+    "@types/yargs": "^17.0.24",
+    "typescript": "^5.0.2"
   },
   "bin": {
-    "nodesockd": "build/cli.js"
+    "nodesockd": "dist/cli/cli.js"
   },
-  "main": "build/index.js",
-  "typings": "build/index.d.ts",
+  "main": "dist/worker/index.js",
+  "typings": "dist/worker/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/worker/index.d.ts",
+      "default": "./dist/worker/index.js"
+  },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    }
+  },
   "files": [
-    "build/**/*.js",
-    "build/index.d.ts"
+    "dist"
   ]
 }

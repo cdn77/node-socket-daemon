@@ -1,65 +1,45 @@
-const { suspend, isSuspended } = require('../');
-const http = require('http');
+const { NodesockdWorker } = require('..');
+const { Server } = require('http');
 
-const server = http.createServer((req, res) => {
-  suspend().then(() => {
-    console.log('HTTP/%s %s %s', req.httpVersion, req.method.toUpperCase(), req.url);
+(async () => {
+  console.log('Starting up....');
 
-    if (/^delete$/i.test(req.method)) {
-      res.write('Bye!\n');
-      res.end();
-      setTimeout(() => shutdown(), 100);
-    } else {
-      res.write('Hello world!\n');
-      res.end();
-    }
+  const worker = new NodesockdWorker();
+  await worker.run();
+
+  console.log(`Nodesockd worker running:`);
+  console.log(` - pid: ${process.pid}`)
+  console.log(worker.socketPath ? ` - socket path: ${worker.socketPath}` : ` - listen port: 8000`);
+
+  const server = new Server();
+
+  server.on('request', async (req, res) => {
+    console.log('[%s] HTTP/%s %s %s', worker.id, req.httpVersion, req.method.toUpperCase(), req.url);
+    await suspendResumed(worker);
+    res.setHeader('Connection', 'close');
+    res.end('Hello world!\n');
   });
-});
 
-const listenOn = process.env.LISTEN_ON
-  ? /^\d+$/.test(process.env.LISTEN_ON)
-    ? parseInt(process.env.LISTEN_ON)
-    : process.env.LISTEN_ON
-  : 4000;
-
-server.listen(listenOn, () => {
-  if (typeof listenOn === 'number') {
-    console.log(`Server is listening on port ${listenOn}.`);
-    console.log(
-      `Open http://localhost:${listenOn}/ in your browser of choice to see that it works.`,
-    );
-  } else {
-    console.log(`Server is listening on ${listenOn}.`);
-    console.log(`Run curl --unix-socket ${listenOn} http://my.app/ to see that it works.`);
-
-    if (isSuspended()) {
-      console.log(
-        'Note that the server is started in suspended mode, so all requests will be queued ' +
-          'until you run "nodesockd resume".',
-      );
-    }
-  }
-
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
-
-  if (process.send) {
-    process.on('message', handleMessage);
-    process.send('online');
-  }
-});
-
-function handleMessage(message) {
-  if (message === 'shutdown') {
-    shutdown();
-  }
-}
-
-function shutdown() {
-  console.log('Terminating server.');
-
-  server.close(err => {
-    err && console.error(err);
-    process.exit(err ? 1 : 0);
+  worker.on('shutdown', () => {
+    console.log('Worker received shutdown command');
+    server.close();
   });
+
+  server.listen(worker.socketPath ?? 8000, async () => {
+    await worker.reportOnline();
+    console.log(`Server is listening for requests.`);
+  });
+})();
+
+async function suspendResumed(worker) {
+  const waiting = await Promise.race([
+    worker.resumed,
+    new Promise((r) => setTimeout(() => r(true), 50)),
+  ]);
+
+  if (waiting) {
+    console.log('  waiting for resume...');
+    await worker.resumed;
+    console.log('  resumed');
+  }
 }
