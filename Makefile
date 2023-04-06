@@ -1,3 +1,6 @@
+.PHONY: default
+default: build
+
 cleanall: clean
 	rm -rf node_modules
 
