@@ -35,7 +35,7 @@ take a look at those:
    then report to the daemon that it is ready to serve requests, at which point
    the daemon will mark the worker as being `online`.
  - `suspended`: This is a special case of the `online` state, we'll get back
-   to it later in the [Deployment] and [Standby] chapters.
+   to it later in the [Integration][1] and [Setup][2] chapters.
  - `broken`: When an error occurs in a worker, the worker may decide that its
    time is up and report to the daemon that it needs to be replaced. The daemon
    will mark the worker as `broken` and proceed to replace it as soon as
@@ -83,3 +83,4 @@ Next chapter: [Integrating Nodesockd with your application workers][1]
 
 
 [1]: ./02-integration.md
+[2]: ./04-setup.md

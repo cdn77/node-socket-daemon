@@ -95,7 +95,7 @@ mechanism, workers can talk to each other, and you can talk to them using CLI
 commands or a custom IPC client.
 
 The nitty-gritty details of the IPC protocol are explained in
-[a separate document], but the gist is this: the IPC plumbing
+[a separate document][2], but the gist is this: the IPC plumbing
 supports one-way _messages_ and two-way _requests_. The protocol defines
 message and request types which each side can handle, and there is a dedicated
 message and request type for app-specific communication, meaning you don't have
@@ -188,3 +188,4 @@ Next chapter: [Configuring Nodesockd][1]
 
 
 [1]: ./03-config.md
+[2]: ./05-ipc.md
