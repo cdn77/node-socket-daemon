@@ -63,6 +63,15 @@ export function isAsyncIterable(value: unknown): value is AsyncIterable<any> {
   return isObject(value) && 'next' in value && typeof value.next === 'function';
 }
 
+export async function * mapAsyncIterable<T, R>(
+  iterable: AsyncIterable<T>,
+  cb: (value: T) => Promise<R> | R,
+): AsyncIterableIterator<R> {
+  for await (const value of iterable) {
+    yield await cb(value);
+  }
+}
+
 export async function * ensureIterable<T extends JsonObject>(
   value: AsyncIterableIterator<T> | T | undefined,
 ): AsyncIterableIterator<T> {

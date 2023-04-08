@@ -5,7 +5,6 @@ export type {
   WorkerStatus,
   WorkerState,
   DaemonApplicationRequestReply,
-  DaemonUpgradeReply,
 } from '../common';
 
 export type {

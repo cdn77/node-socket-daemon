@@ -8,13 +8,13 @@ import {
   DaemonSetWorkerCount,
   DaemonStatus,
   DaemonTerminateReply,
-  DaemonUpgradeOptions,
-  DaemonUpgradeReply,
   WorkerBroken,
   WorkerDetach,
   WorkerOnline,
   WorkerSetName,
   WorkerStart,
+  WorkerRestart,
+  WorkerRestartReply,
 } from '../common';
 import { IpcMessageMap } from '../ipc';
 
@@ -38,13 +38,12 @@ export interface WorkerProcessIpcOutgoingMap extends IpcMessageMap {
 export interface DaemonIpcIncomingMap extends WorkerProcessIpcIncomingMap {
   status: [undefined, DaemonStatus];
   'start-workers': [WorkerStart, void];
-  'restart-workers': [WorkerStart, void];
+  'restart-workers': [WorkerRestart, WorkerRestartReply];
   'resume-workers': [undefined, void];
   'stop-workers': [undefined, void];
   'set-worker-count': [DaemonSetWorkerCount, void];
   'set-standby-count': [DaemonSetWorkerCount, void];
   reload: [undefined, void];
-  upgrade: [DaemonUpgradeOptions, DaemonUpgradeReply];
   terminate: [undefined, DaemonTerminateReply];
 }
 

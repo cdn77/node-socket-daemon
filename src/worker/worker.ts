@@ -1,34 +1,33 @@
 import { ApplicationRequestReply, DaemonApplicationRequestReply } from '../common';
 import {
+  AnyIpcHandler,
   ensureIterable,
   IpcPeer,
   isAsyncIterable,
   isChildProcess,
   JsonObject,
-  JsonSerializable,
+  mapAsyncIterable,
   NativeIpcTransport,
   UnixSocketIpcTransport,
 } from '../ipc';
 import { createPromise, EventEmitter, EventMap, PromiseApi, sleep } from '../utils';
 import { WorkerIpcIncomingMap, WorkerIpcOutgoingMap } from './types';
+import { getOptionsFromEnv, NodesockdWorkerOptions } from './utils';
 
-type NodesockdWorkerOptions = {
-  id?: string;
-  name?: string;
-  suspended?: boolean;
-  socketPath?: string;
-};
 
 export interface NodesockdWorkerEvents extends EventMap {
   message: [message: string, data?: JsonObject];
   shutdown: [];
 }
 
-export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
+class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
   private readonly options: NodesockdWorkerOptions;
+  private readonly requestHandlers: Map<string, AnyIpcHandler> = new Map();
   private ipc?: IpcPeer<WorkerIpcOutgoingMap, WorkerIpcIncomingMap>;
   private resume?: PromiseApi<void>;
   private detached: boolean = false;
+  private adopted: boolean = false;
+  private broken?: { reason?: string };
 
   constructor(appName?: string) {
     super();
@@ -39,7 +38,9 @@ export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
       this.ipc = new IpcPeer(new NativeIpcTransport(process));
     }
 
-    this.resume = this.ipc && this.options.suspended ? createPromise() : undefined;
+    if (this.ipc && this.options.suspended) {
+      this.resume = createPromise();
+    }
   }
 
   async run(): Promise<void> {
@@ -51,7 +52,7 @@ export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
       });
 
       this.ipc.setRequestHandler('app-req', async ({ request, data }) => {
-        return this.processApplicationRequest(request, data)
+        return this.handleApplicationRequest(request, data)
       });
 
       this.ipc.setMessageHandler('resume', async () => this.handleResume());
@@ -65,6 +66,14 @@ export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
 
   get id(): string | undefined {
     return this.options.id;
+  }
+
+  get shortId(): string | undefined {
+    return this.options.id?.slice(-5);
+  }
+
+  get suspended(): boolean {
+    return this.options.suspended;
   }
 
   get resumed(): Promise<void> {
@@ -83,22 +92,18 @@ export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
   }
 
   async reportOnline(): Promise<void> {
-    await this.ipc?.sendMessage('online', {
-      id: this.options.id!,
-      pid: process.pid,
-      suspended: !!this.resume,
-    });
+    if (!this.detached) {
+      await this.reportState();
+    }
   }
 
   async reportBroken(reason?: string): Promise<void> {
-    if (this.ipc) {
-      await this.ipc.sendMessage('broken', {
-        id: this.options.id!,
-        pid: process.pid,
-        reason,
-      });
-    } else {
+    this.broken = { reason };
+
+    if (!this.ipc) {
       Promise.resolve().then(() => this.handleShutdown());
+    } else if (!this.detached || this.adopted) {
+      await this.reportState();
     }
   }
 
@@ -108,32 +113,34 @@ export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
 
   async * sendAppRequest(request: string, data?: JsonObject, workers?: string): AsyncIterableIterator<DaemonApplicationRequestReply> {
     if (!this.ipc) {
-      return;
+      throw new Error('Cannot send an app request when worker is running in standalone mode');
     }
 
     const reply = await this.ipc.sendRequest('send-app-req', { request, data, workers });
     yield * ensureIterable(reply);
   }
 
-  protected handleApplicationRequest(
-    request: string,
-    data?: JsonObject,
-  ): AsyncIterableIterator<JsonSerializable> | Promise<JsonSerializable> | JsonSerializable {
-    throw new Error(`Unhandled application request: ${request}`);
+  setRequestHandler(request: string, handler: AnyIpcHandler): void {
+    this.requestHandlers.set(request, handler);
   }
 
-  private async processApplicationRequest(
+  private async handleApplicationRequest(
     request: string,
     data?: JsonObject,
   ): Promise<AsyncIterableIterator<ApplicationRequestReply> | ApplicationRequestReply> {
-    const reply = await this.handleApplicationRequest(request, data);
+    const handler = this.requestHandlers.get(request);
+
+    if (!handler) {
+      throw new Error(`Unhandled application request: ${request}`);
+    }
+
+    const reply = await handler(data);
 
     if (isAsyncIterable(reply)) {
-      return (async function * () {
-        for await (const data of reply) {
-          yield { pid: process.pid, data };
-        }
-      })();
+      return mapAsyncIterable(reply, (data) => ({
+        pid: process.pid,
+        data,
+      }));
     } else {
       return {
         pid: process.pid,
@@ -143,10 +150,29 @@ export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
   }
 
   private setProcessTitle(): void {
-    process.title = `${this.options.name ?? 'app'} worker '${this.options.id ?? '?'}'`;
+    process.title = `${this.options.name ?? 'app'} worker '${this.shortId ?? '?'}'`;
+  }
+
+  private async reportState(): Promise<boolean> {
+    if (!this.ipc || this.options.id === undefined) {
+      return false;
+    }
+
+    const [state, data] = this.broken !== undefined
+      ? ['broken', this.broken] as const
+      : ['online', { suspended: this.options.suspended }] as const;
+
+    await this.ipc.sendMessage(state, {
+      id: this.options.id,
+      pid: process.pid,
+      ...data,
+    });
+
+    return true;
   }
 
   private handleResume(): void {
+    this.options.suspended = false;
     this.resume?.resolve();
     this.resume = undefined;
   }
@@ -165,7 +191,8 @@ export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
     while (true) {
       try {
         await this.run();
-        await this.reportOnline();
+        await this.reportState();
+        this.adopted = true;
         break;
       } catch {
         await sleep(250);
@@ -175,6 +202,7 @@ export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
 
   private async handleShutdown(): Promise<void> {
     await this.ipc?.terminate();
+    this.ipc = undefined;
     this.emit('shutdown');
   }
 
@@ -184,21 +212,8 @@ export class NodesockdWorker extends EventEmitter<NodesockdWorkerEvents> {
   }
 }
 
-function getOptionsFromEnv(): NodesockdWorkerOptions {
-  const id = getEnv('WORKER_ID');
-  const name = getEnv('APP_NAME');
-  const suspended = getEnv('SUSPENDED', (v) => v === 'true');
-  const socketPath = getEnv('SOCKET_PATH');
+const nodesockd = new NodesockdWorker();
+nodesockd.run();
 
-  return {
-    id,
-    name,
-    suspended,
-    socketPath,
-  };
-}
-
-function getEnv<R = string>(name: string, xform?: (value: string) => R): R | undefined {
-  const value = process.env[`NODESOCKD_${name}`];
-  return !xform || value === undefined ? value : xform(value) as any;
-}
+export { nodesockd };
+export type { NodesockdWorker };

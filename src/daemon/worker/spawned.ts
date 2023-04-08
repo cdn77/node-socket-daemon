@@ -11,9 +11,9 @@ export class SpawnedWorkerProcess extends AbstractWorkerProcess {
     }
 
     const stdout = this.options.stdout ? await open(this.options.stdout, 'a', 0o600) : undefined;
-    const stderr = typeof this.options.stderr === 'string'
-      ? await open(this.options.stderr, 'a', 0o600)
-      : (this.options.stderr !== false ? stdout : undefined);
+    const stderr = this.options.stderr === undefined ? stdout
+      : this.options.stderr !== null ? await open(this.options.stderr, 'a', 0o600)
+      : undefined
 
     const startup: PromiseApi<number> = createPromise(this.options.spawnTimeout);
     const worker = spawn(process.execPath, [script], {

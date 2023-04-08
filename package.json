@@ -17,6 +17,7 @@
     "@debugr/console": "^3.0.0-rc.8",
     "@debugr/core": "^3.0.0-rc.9",
     "js-yaml": "^4.1.0",
+    "semver": "^7.3.8",
     "uuid": "^9.0.0",
     "yargs": "^17.7.1",
     "zod": "^3.21.4"
@@ -25,6 +26,7 @@
     "@tsconfig/node18": "^1.0.1",
     "@types/js-yaml": "^4.0.5",
     "@types/node": "^18.15.10",
+    "@types/semver": "^7.3.13",
     "@types/uuid": "^9.0.1",
     "@types/yargs": "^17.0.24",
     "typescript": "^5.0.2"

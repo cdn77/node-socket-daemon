@@ -1,6 +1,12 @@
 import { ArgumentsCamelCase, Argv, CommandModule } from 'yargs';
-import { DaemonApplicationRequestReply, JsonObject, NodesockdClient } from '../client';
+import {
+  DaemonApplicationRequestReply,
+  JsonObject,
+  NodesockdClient,
+  WorkerStatus,
+} from '../client';
 import { resolveIpcFile } from '../common';
+import { isPidAlive } from '../daemon';
 import { IpcConnectError, IpcRequestError } from '../ipc';
 import { sleep } from '../utils';
 
@@ -16,6 +22,30 @@ function common<Args>(args: Argv<Args>): Argv<Args & CommonArgs> {
   return args
     .string('config').alias('c', 'config')
     .string('ipc').alias('i', 'ipc');
+}
+
+export async function createClient(ipc?: string, config?: string, retry: boolean = false): Promise<NodesockdClient> {
+  const ipcFile = await resolveIpcFile(ipc, config);
+  const client = new NodesockdClient(ipcFile);
+
+  while (true) {
+    try {
+      await client.run();
+      return client;
+    } catch (e) {
+      if (retry) {
+        await sleep(250);
+        continue;
+      }
+
+      if (e instanceof IpcConnectError) {
+        console.log(`Failed to connect to IPC socket '${ipcFile}'. Is the Nodesockd daemon running?`);
+        process.exit(1);
+      } else {
+        throw e;
+      }
+    }
+  }
 }
 
 export function createCommand(
@@ -44,19 +74,7 @@ export function createCommand<Args>(
     describe,
     builder: (args) => builder ? builder(common(args)) : common(args),
     handler: async (args) => {
-      const ipcFile = await resolveIpcFile(args.ipc, args.config);
-      const client = new NodesockdClient(ipcFile);
-
-      try {
-        await client.run();
-      } catch (e) {
-        if (e instanceof IpcConnectError) {
-          console.log(`Failed to connect to IPC socket '${ipcFile}'. Is the Nodesockd daemon running?`);
-          process.exit(1);
-        } else {
-          throw e;
-        }
-      }
+      const client = await createClient(args.ipc, args.config);
 
       try {
         await handler(client, args);
@@ -76,6 +94,10 @@ export function createCommand<Args>(
       await client.terminate();
     },
   };
+}
+
+export function compareWorkerStates(a: WorkerStatus, b: WorkerStatus): number {
+  return ((a.idx ?? 1e9) - (b.idx ?? 1e9)) || ((a.pid ?? 1e9) - (b.pid ?? 1e9));
 }
 
 export function formatTs(ts?: number): string {
@@ -112,14 +134,16 @@ export function coerceJson(value?: string): JsonObject | undefined {
   return data;
 }
 
+export function formatErrors(errors: string[]): string {
+  return errors.length > 1 ? `\n - ${errors.join('\n - ')}` : ` ${errors.join('')}`;
+}
+
 export function formatReply(reply: DaemonApplicationRequestReply): string {
   const prefix = `${reply.id} (${reply.pid})`.padEnd(12, ' ');
   let content: string;
 
   if (reply.errors) {
-    content = reply.errors.length > 1
-      ? `Errors:\n - ${reply.errors.join('\n - ')}`
-      : `Error: ${reply.errors.join('')}`;
+    content = `Error:${formatErrors(reply.errors)}`;
   } else if (reply.data !== undefined) {
     content = typeof reply.data !== 'string' ? JSON.stringify(reply.data, null, 2) : reply.data;
   } else {
@@ -130,12 +154,7 @@ export function formatReply(reply: DaemonApplicationRequestReply): string {
 }
 
 export async function waitForPidToTerminate(pid: number): Promise<void> {
-  while (true) {
-    try {
-      process.kill(pid, 0);
-      break;
-    } catch (e) {
-      await sleep(250);
-    }
+  while (isPidAlive(pid)) {
+    await sleep(250);
   }
 }

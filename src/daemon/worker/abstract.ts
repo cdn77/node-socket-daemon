@@ -144,8 +144,15 @@ export abstract class AbstractWorkerProcess extends EventEmitter<WorkerProcessEv
 
   handleBroken(reason?: string): void {
     this.logger.warning(`Worker ${this.descr} reported itself as broken, reason: ${reason ?? 'unknown'}`);
+
+    const wasPastOnline = !this.isInState('running');
     this.setState('broken');
-    this.emit('broken', this, reason);
+
+    if (wasPastOnline) {
+      this.emit('broken', this, reason);
+    } else {
+      this._online.abort();
+    }
   }
 
   async detach(ipcPath: string): Promise<void> {
@@ -222,7 +229,7 @@ export abstract class AbstractWorkerProcess extends EventEmitter<WorkerProcessEv
     }
 
     this.setState('dead');
-    this._onlineUsed ? this._online.reject() : this._online.resolve();
+    this._onlineUsed ? this._online.abort() : this._online.resolve();
     this._terminated?.resolve();
     await this.ipc.terminate();
     this.emit('terminated', this);

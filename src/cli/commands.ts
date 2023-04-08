@@ -2,8 +2,11 @@ import { CommandModule } from 'yargs';
 import { resolveConfig } from '../common';
 import { Daemon } from '../daemon';
 import { IpcConnectError, IpcRequestError } from '../ipc';
+import { shortId, sleep } from '../utils';
 import {
   coerceJson,
+  compareWorkerStates,
+  createClient,
   createCommand,
   formatReply,
   formatTs,
@@ -35,14 +38,19 @@ export const getStatus = createCommand('status', 'Get daemon status', async (cli
     const status = await client.getStatus();
 
     console.log(`Nodesockd daemon ${status.version} is running with PID ${status.pid} since ${formatTs(status.startTs)}.`);
-    console.log(`\nWorkers:\n`);
-    console.log(`|  # | PID    | State                        |`);
-    console.log(`|----|--------|------------------------------|`);
 
-    for (const w of status.workers) {
+    const idxLen = Math.max(1, ...status.workers.map((w) => (w.idx ?? 0).toString().length));
+    const pidLen = Math.max(3, ...status.workers.map((w) => (w.pid ?? 0).toString().length));
+
+    console.log(`\nWorkers:\n`);
+    console.log(`|${' '.repeat(idxLen)}# | ID    | PID${' '.repeat(pidLen - 3)} | State                        |`);
+    console.log(`|${'-'.repeat(idxLen)}--|-------|----${'-'.repeat(pidLen - 3)}-|------------------------------|`);
+
+    for (const w of status.workers.sort(compareWorkerStates)) {
       const parts = [
-        pad(w.idx),
-        pad(w.pid, 6),
+        pad(w.idx, idxLen),
+        shortId(w.id),
+        pad(w.pid, pidLen),
         `${w.state.padEnd(11, ' ')} (${formatTs(w.stateTs)})`,
       ];
 
@@ -71,9 +79,31 @@ export const start = createCommand(
 export const restart = createCommand(
   'restart',
   'Restart workers',
-  (args) => args.boolean('suspended').alias('s', 'suspended'),
-  async (client, { suspended }) => {
+  (args) => args
+    .boolean('suspended').alias('s', 'suspended')
+    .boolean('upgrade').alias('u', 'upgrade'),
+  async (client, { suspended, upgrade, ipc, config }) => {
+    if (upgrade) {
+      const { upgrading, pid } = await client.restartWorkers(suspended, upgrade);
+
+      if (upgrading) {
+        console.log(`Daemon process with PID ${pid} is upgrading.`);
+        console.log('Waiting for the old daemon process to terminate...');
+        await client.terminate();
+
+        await waitForPidToTerminate(pid);
+
+        console.log('Waiting for a new daemon process to come online...');
+        client = await createClient(ipc, config, true);
+        await sleep(2000); // ensure adoption period has passed
+      } else {
+        console.log(`Daemon process with PID ${pid} is already the latest version.`);
+        return;
+      }
+    }
+
     await client.restartWorkers(suspended);
+    await client.terminate();
   },
 );
 
@@ -156,20 +186,7 @@ export const terminateDaemon = createCommand(
   'Ask the daemon to terminate',
   async (client) => {
     const pid = await client.terminateDaemon();
+    await client.terminate();
     await waitForPidToTerminate(pid);
-  },
-);
-
-export const upgradeDaemon = createCommand(
-  'upgrade',
-  `Tell the daemon to upgrade itself`,
-  async (client) => {
-    const { upgrading, pid } = await client.upgradeDaemon();
-
-    if (upgrading) {
-      console.log(`Daemon process with PID ${pid} is upgrading.`);
-    } else {
-      console.log(`Daemon process with PID ${pid} is already the latest version.`);
-    }
   },
 );

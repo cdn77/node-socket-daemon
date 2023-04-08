@@ -31,6 +31,16 @@ export type WorkerStart = {
   suspended?: boolean;
 };
 
+export type WorkerRestart = {
+  suspended?: boolean;
+  version?: string;
+};
+
+export type WorkerRestartReply = {
+  upgrading?: boolean;
+  pid: number;
+};
+
 export type WorkerDetach = {
   ipcPath: string;
 };
@@ -77,15 +87,6 @@ export type DaemonApplicationRequestReply = {
   pid: number;
   data?: JsonSerializable;
   errors?: string[];
-};
-
-export type DaemonUpgradeOptions = {
-  version: string;
-};
-
-export type DaemonUpgradeReply = {
-  upgrading: boolean;
-  pid: number;
 };
 
 export type DaemonTerminateReply = {

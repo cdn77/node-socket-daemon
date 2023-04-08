@@ -9,7 +9,14 @@ import {
   WorkerStatus,
 } from '../common';
 import { IpcPeer, JsonObject } from '../ipc';
-import { consumeAsyncResources, EventEmitter, EventMap, shortId, sleep } from '../utils';
+import {
+  consumeAsyncResources,
+  EventEmitter,
+  EventMap,
+  PromiseTimedOut,
+  shortId,
+  sleep,
+} from '../utils';
 import { buildWorkerEnv, compareConfig } from './utils';
 import {
   AbstractWorkerProcess,
@@ -28,7 +35,6 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
   private readonly logger: Logger;
   private config: Config;
   private readonly workers: WorkerSet = new WorkerSet();
-  private readonly msgApi: ApplicationMessageApi;
   private adopting: boolean = true;
   private running: boolean = false;
 
@@ -36,11 +42,6 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
     super();
     this.logger = logger;
     this.config = config;
-
-    this.msgApi = {
-      sendAppMessage: async ({ message, data, workers }) => this.sendAppMessage(message, data, workers),
-      sendAppRequest: ({ request, data, workers }) => this.sendAppRequest(request, data, workers),
-    };
 
     this.handleWorkerBroken = this.handleWorkerBroken.bind(this);
     this.handleWorkerTerminated = this.handleWorkerTerminated.bind(this);
@@ -101,21 +102,31 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
   }
 
   async handleOnline(peer: IpcPeer<any, any>, { id, pid, suspended }: WorkerOnline): Promise<void> {
-    const worker = this.workers.get(id);
-
-    if (worker || !this.adopting) {
-      return worker?.handleOnline(suspended);
+    if (!this.adopting) {
+      const worker = await this.adoptWorker(peer, id, pid);
+      await worker.terminate();
+      return;
+    } else if (this.workers.has(id)) {
+      return;
     }
 
-    this.logger.info(`Adopting existing worker '${shortId(id)}' (pid: ${pid})`);
-    const adopted = this.createWorker(id, suspended || this.workers.size, true);
-    await adopted.init(pid, peer);
-    adopted.handleOnline(suspended);
+    const worker = await this.adoptWorker(peer, id, pid, suspended || this.workers.size);
+    worker.handleOnline(suspended);
+
+    if (!suspended) {
+      // the adopted process probably already has its symlink in place,
+      // but we don't know its original index and so when the worker
+      // eventually terminates, we might clean up the wrong symlink -
+      // this way we're sure the adopted worker's symlink is the correct
+      // one, even though it might mean that the symlinks get reassigned
+      // to different workers during adoption
+      await this.symlinkSocket(worker);
+    }
   }
 
   async handleBroken(peer: IpcPeer<any, any>, { id, pid, reason }: WorkerBroken): Promise<void> {
-    const worker = this.workers.get(id) ?? await this.wrapZombieWorker(peer, id, pid);
-    worker.handleBroken();
+    const worker = this.workers.get(id) ?? await this.adoptWorker(peer, id, pid);
+    worker.handleBroken(reason);
   }
 
   async setConfig(config: Config): Promise<void> {
@@ -160,8 +171,8 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
     }
   }
 
-  async sendAppMessage(message: string, data?: JsonObject, workers?: string): Promise<void> {
-    await Promise.all(this.workers.resolve(workers).map(async (worker) => {
+  async sendAppMessage(message: string, data?: JsonObject, workers?: string, sender?: string): Promise<void> {
+    await Promise.all(this.workers.resolve(workers, sender).map(async (worker) => {
       await worker.sendAppMessage(message, data);
     }));
   }
@@ -170,8 +181,9 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
     request: string,
     data?: JsonObject,
     workers?: string,
+    sender?: string,
   ): AsyncIterableIterator<DaemonApplicationRequestReply> {
-    const requests = this.workers.resolve(workers).map((worker) => {
+    const requests = this.workers.resolve(workers, sender).map((worker) => {
       return worker.sendAppRequest(request, data);
     });
 
@@ -185,22 +197,24 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
       queue.push(this.startWorker(i, suspended));
     }
 
+    const standbys = this.workers.ejectStandby();
+
     for (let i = 0; i < this.config.standby; ++i) {
       queue.push(this.startWorker(true));
     }
 
     queue.length && await Promise.all(queue);
+    standbys.length && await Promise.all(standbys.map((standby) => standby.terminate()));
   }
 
   private async startWorker(idxOrStandby: number | true, suspended?: boolean): Promise<void> {
     const standby = typeof idxOrStandby === 'boolean';
     const previous = !standby && this.workers.getCurrent(idxOrStandby);
-    let lastError: any;
 
-    for (let i = 0; i < 3; ++i) {
+    while (this.running) {
       const id = v4();
       const [pre, post] = idxOrStandby === true ? ['standby ', ''] : ['', ` #${idxOrStandby}`];
-      this.logger.info(`Starting new ${pre}worker${post} '${shortId(id)}', attempt #${i}...`);
+      this.logger.info(`Starting new ${pre}worker${post} '${shortId(id)}'...`);
       const worker = this.createWorker(id, idxOrStandby);
 
       try {
@@ -212,7 +226,7 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
       } catch (e) {
         this.workers.delete(worker);
         this.logger.warning(`Error spawning worker ${worker.descr}`, e);
-        lastError = e;
+        await sleep(1000);
         continue;
       }
 
@@ -227,17 +241,18 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
           await this.symlinkSocket(worker);
         }
       } catch (e) {
-        this.logger.warning(`Worker ${worker.descr} failed to come online within the configured timeout`);
+        if (e instanceof PromiseTimedOut) {
+          this.logger.warning(`Worker ${worker.descr} failed to come online within the configured timeout`);
+        }
+
+        this.workers.demote(worker);
         await worker.terminate();
-        lastError = e;
         continue;
       }
 
       previous && await previous.terminate();
-      return;
+      break;
     }
-
-    throw lastError;
   }
 
   private async adjustWorkerCount(count: number, orig: number, standby?: boolean): Promise<void> {
@@ -252,7 +267,7 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
         const worker = standby ? this.workers.popStandby() : this.workers.getCurrent(i);
 
         if (worker) {
-          !standby && this.workers.clearCurrent(i);
+          this.workers.demote(worker);
           queue.push(worker.terminate());
         }
       }
@@ -302,19 +317,33 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
     await this.cleanupSocket(this.formatWorkerSocketPath(worker.id));
   }
 
-  private async wrapZombieWorker(peer: IpcPeer<any, any>, id: string, pid: number): Promise<AbstractWorkerProcess> {
-    this.logger.info(`Zombie worker '${shortId(id)}' (pid: ${pid}) discovered`);
-    const zombie = this.createWorker(id, undefined, true);
-    await zombie.init(pid, peer);
-    return zombie;
+  private async adoptWorker(
+    peer: IpcPeer<any, any>,
+    id: string,
+    pid: number,
+    idxOrStandby?: number | boolean,
+  ): Promise<AbstractWorkerProcess> {
+    const [pre, post] = idxOrStandby === undefined ? ['Zombie', ' discovered']
+      : typeof idxOrStandby === 'boolean' ? ['Adopting standby', ''] : ['Adopting', '']
+    this.logger.info(`${pre} worker '${shortId(id)}' (pid: ${pid})${post}`);
+    peer.clearAllHandlers();
+    const worker = this.createWorker(id, idxOrStandby, true);
+    await worker.init(pid, peer);
+    return worker;
   }
 
   private createWorker(id: string, idxOrStandby?: number | boolean, adopted?: false): SpawnedWorkerProcess;
   private createWorker(id: string, idxOrStandby: number | boolean | undefined, adopted: true): AdoptedWorkerProcess;
   private createWorker(id: string, idxOrStandby?: number | boolean, adopted: boolean = false): AbstractWorkerProcess {
+    const api: ApplicationMessageApi = {
+      sendAppMessage: async ({ message, data, workers }) => this.sendAppMessage(message, data, workers, id),
+      sendAppRequest: ({ request, data, workers }) => this.sendAppRequest(request, data, workers, id),
+    };
+
     const worker = adopted
-      ? new AdoptedWorkerProcess(id, this.config.options, this.logger, this.msgApi)
-      : new SpawnedWorkerProcess(id, this.config.options, this.logger, this.msgApi);
+      ? new AdoptedWorkerProcess(id, this.config.options, this.logger, api)
+      : new SpawnedWorkerProcess(id, this.config.options, this.logger, api);
+
     this.workers.add(worker, idxOrStandby);
     worker.on('broken', this.handleWorkerBroken);
     worker.on('terminated', this.handleWorkerTerminated);

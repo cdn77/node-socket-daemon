@@ -39,9 +39,7 @@ export class WorkerSet {
     this.processes.delete(worker);
     this.ids.delete(worker.id);
     worker.pid !== undefined && this.pids.delete(worker.pid);
-    worker.idx !== undefined && this.isCurrent(worker) && this.current.delete(worker.idx);
-    const standby = this.standby.indexOf(worker);
-    standby > -1 && this.standby.splice(standby, 1);
+    this.demote(worker);
   }
 
   mapPid(worker: AbstractWorkerProcess): void {
@@ -61,10 +59,6 @@ export class WorkerSet {
     this.current.set(idx, worker);
   }
 
-  clearCurrent(idx: number): void {
-    this.current.delete(idx);
-  }
-
   isStandby(worker: AbstractWorkerProcess): boolean {
     return this.standby.includes(worker);
   }
@@ -73,15 +67,26 @@ export class WorkerSet {
     return this.standby.shift();
   }
 
-  resolve(workers?: string): AbstractWorkerProcess[] {
+  ejectStandby(): AbstractWorkerProcess[] {
+    return this.standby.splice(0, this.standby.length);
+  }
+
+  demote(worker: AbstractWorkerProcess): void {
+    this.isCurrent(worker) && this.current.delete(worker.idx);
+    const standby = this.standby.indexOf(worker);
+    standby > -1 && this.standby.splice(standby, 1);
+  }
+
+  resolve(workers?: string, self?: string): AbstractWorkerProcess[] {
     if (workers === undefined) {
       return [...this.current.values()];
     }
 
     const matches: Set<AbstractWorkerProcess> = new Set();
+    const n = this.current.size;
 
     for (const part of workers.trim().split(/\s*,\s*/g)) {
-      const m = part.match(/^(!?)(?:(\d+)(?:(-)(\d+))?|\$(\d+)|([a-f0-9-]+))$/i);
+      const m = part.match(/^(!?)(?:(\d+)|(\d+)?(-)(\d+)?|\$(\d+)|([a-f0-9-]+)|self)$/i);
 
       if (!m) {
         continue;
@@ -93,13 +98,21 @@ export class WorkerSet {
 
       if (m[2] !== undefined) {
         collection = this.current;
-        match = m[3]
-          ? range(parseInt(m[2], 10), m[4] !== undefined ? parseInt(m[4], 10) : this.current.size)
-          : parseInt(m[2]);
+        match = parseInt(m[2], 10);
+      } else if (m[4] !== undefined) {
+        collection = this.current;
+        match = range(
+          m[3] !== undefined ? parseInt(m[3], 10) : 0,
+          m[5] !== undefined ? parseInt(m[5], 10) : n,
+        );
+      } else if (m[6] !== undefined) {
+        [collection, match] = [this.pids, parseInt(m[6], 10)];
+      } else if (m[7] !== undefined) {
+        [collection, match] = [this.ids, m[7]];
+      } else if (self !== undefined) {
+        [collection, match] = [this.ids, self];
       } else {
-        [collection, match] = m[5] !== undefined
-          ? [this.pids, parseInt(m[5])]
-          : [this.ids, m[6]];
+        continue;
       }
 
       for (const worker of extractWorkers(collection, match, not)) {

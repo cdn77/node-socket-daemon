@@ -8,7 +8,7 @@ const partialOptionsSchema = z.strictObject({
   onlineTimeout: z.number().int().optional(),
   shutdownTimeout: z.number().int().optional(),
   stdout: z.string().optional(),
-  stderr: z.union([z.string(), z.boolean()]).optional(),
+  stderr: z.string().nullable().optional(),
 });
 
 const partialConfigSchema = z.strictObject({
@@ -30,14 +30,16 @@ const finalOptionsSchema = z.strictObject({
   onlineTimeout: z.number().int().default(10000),
   shutdownTimeout: z.number().int().default(10000),
   stdout: z.string().optional(),
-  stderr: z.union([z.string(), z.boolean()]).optional(),
+  stderr: z.string().nullable().optional(),
 });
 
 const finalConfigSchema = z.strictObject({
   name: z.string().default('app'),
   script: z.string(),
   tmpDir: z.string(),
-  socketFile: z.string().default('app.{worker}.sock'),
+  socketFile: z.string()
+    .regex(/\{worker}/, `The 'socketFile' option must contain the '{worker}' placeholder`)
+    .default('app.{worker}.sock'),
   ipcFile: z.string().default('nodesockd.ipc'),
   workers: z.number().int().default(1),
   standby: z.number().int().default(0),

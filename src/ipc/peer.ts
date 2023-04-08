@@ -36,6 +36,10 @@ export class IpcPeer<Out extends IpcMessageMap, In extends IpcMessageMap = {}> {
   }
 
   async run(): Promise<void> {
+    if (this.started) {
+      return;
+    }
+
     this.transport.on('message', this.handleMessage);
     this.transport.on('close', this.handleTransportClosed);
 
@@ -49,6 +53,10 @@ export class IpcPeer<Out extends IpcMessageMap, In extends IpcMessageMap = {}> {
   }
 
   async terminate(): Promise<void> {
+    if (!this.started) {
+      return;
+    }
+
     this.transport.close && await this.transport.close();
     this.started = false;
   }
@@ -71,6 +79,10 @@ export class IpcPeer<Out extends IpcMessageMap, In extends IpcMessageMap = {}> {
     await this.send({ type, id, data });
 
     return request.promise;
+  }
+
+  clearAllHandlers(): void {
+    this.handlers.clear();
   }
 
   setMessageHandler<T extends MessageType<In>>(

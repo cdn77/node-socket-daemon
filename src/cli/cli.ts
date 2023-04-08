@@ -3,6 +3,7 @@
 import * as yargs from 'yargs';
 import { ZodError } from 'zod';
 import * as commands from './commands';
+import { formatErrors } from './utils';
 
 yargs
   .usage('Usage: $0 <command> [options]')
@@ -17,18 +18,19 @@ yargs
   .command(commands.sendAppMessage)
   .command(commands.sendAppRequest)
   .command(commands.reloadDaemonConfig)
-  .command(commands.upgradeDaemon)
   .command(commands.terminateDaemon)
   .demandCommand()
   .fail((msg, err, yargs) => {
     if (err instanceof ZodError) {
-      console.log(`Invalid config:\n - ${err.errors.map((e) => e.message).join('\n - ')}`);
+      console.log(`Invalid config:${formatErrors(err.issues.map((issue) => issue.message))}`);
     } else if (err) {
       console.log(`Unhandled application error:`);
       console.log(err);
-    } else {
+    } else if (msg !== null) {
       yargs.showHelp();
       console.log('\n' + msg);
+    } else {
+      console.log('Daemon terminated unexpectedly');
     }
 
     console.log('');

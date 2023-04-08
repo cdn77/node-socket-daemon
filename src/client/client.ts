@@ -1,8 +1,7 @@
 import {
   DaemonApplicationRequestReply,
   DaemonStatus,
-  DaemonUpgradeReply,
-  getNodesockdVersion,
+  getNodesockdVersion, WorkerRestartReply,
 } from '../common';
 import { IpcPeer, JsonObject, UnixSocketIpcTransport } from '../ipc';
 import { ClientIpcOutgoingMap } from './types';
@@ -30,8 +29,9 @@ export class NodesockdClient {
     await this.ipc.sendRequest('start-workers', { suspended });
   }
 
-  async restartWorkers(suspended?: boolean): Promise<void> {
-    await this.ipc.sendRequest('restart-workers', { suspended });
+  async restartWorkers(suspended?: boolean, upgrade: boolean = false): Promise<WorkerRestartReply> {
+    const version = upgrade ? getNodesockdVersion() : undefined;
+    return this.ipc.sendRequest('restart-workers', { suspended, version });
   }
 
   async resumeWorkers(): Promise<void> {
@@ -60,10 +60,6 @@ export class NodesockdClient {
 
   async reloadConfig(): Promise<void> {
     await this.ipc.sendRequest('reload');
-  }
-
-  async upgradeDaemon(): Promise<DaemonUpgradeReply> {
-    return this.ipc.sendRequest('upgrade', { version: getNodesockdVersion() });
   }
 
   async terminateDaemon(): Promise<number> {
