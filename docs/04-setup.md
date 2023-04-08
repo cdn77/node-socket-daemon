@@ -78,9 +78,43 @@ DaemonTools and many other things. It's really up to you - just make sure
 that the Nodesockd daemon is running under the system user you want your
 workers to run under, and not, for example, `root`.
 
-The daemon is started using the `nodesockd daemon` command. If your config file
-is in a non-standard location, you can tell the daemon where to find it using
-the `--config` (or `-c`, for short) command line option.
+The daemon is started using the `nodesockd daemon` command. It may be a good
+idea to set the working directory of the service to the application root
+directory. The `nodesockd` command will probably not be in your `$PATH`,
+so assuming the service working directory is the application root, you can use
+`node_modules/.bin/nodesockd`. If your config file is not in one of the
+predefined locations as described in the [Config][2] chapter, you can tell the
+daemon where to look for it using the `--config` option. An example script
+to start the daemon using e.g. DaemonTools:
+
+```shell
+#!/usr/bin/env bash
+cd /home/my-app
+sudo -u app-user node_modules/.bin/nodesockd daemon
+```
+
+Example Systemd service unit:
+
+```unit file (systemd)
+[Unit]
+Description=Nodesockd daemon
+After=network.target
+
+[Service]
+Type=simple
+User=app-user
+WorkingDirectory=/home/my-app
+ExecStart=node_modules/.bin/nodesockd
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+The daemon understands some common POSIX signals in the way they're typically
+employed:
+ - `SIGTERM` and `SIGINT` will cause the daemon to quit gracefully
+ - `SIGHUP` will cause the daemon to reload the application config file
 
 
 ## Deployment

@@ -22,6 +22,7 @@ npm install --save nodesockd
  - [Integrating with application code][2]
  - [Config reference][3]
  - [System setup and Nginx integration][4]
+ - [FAQ for SysAdmins][5]
 
 
 ## Quick start
@@ -76,3 +77,4 @@ node build/app.js
 [2]: https://github.com/cdn77/node-socket-daemon/blob/main/docs/02-integration.md
 [3]: https://github.com/cdn77/node-socket-daemon/blob/main/docs/03-config.md
 [4]: https://github.com/cdn77/node-socket-daemon/blob/main/docs/04-setup.md
+[5]: https://github.com/cdn77/node-socket-daemon/blob/main/docs/06-faq-for-admins.md
