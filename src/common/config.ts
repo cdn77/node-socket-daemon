@@ -4,9 +4,10 @@ import { load } from 'js-yaml';
 import { z } from 'zod';
 
 const partialOptionsSchema = z.strictObject({
-  spawnTimeout: z.number().int().optional(),
-  onlineTimeout: z.number().int().optional(),
-  shutdownTimeout: z.number().int().optional(),
+  spawnTimeout: z.number().int().min(1).optional(),
+  onlineTimeout: z.number().int().min(1).optional(),
+  shutdownTimeout: z.number().int().min(1).optional(),
+  maxStartAttempts: z.number().int().min(1).optional(),
   stdout: z.string().optional(),
   stderr: z.string().nullable().optional(),
 });
@@ -18,17 +19,18 @@ const partialConfigSchema = z.strictObject({
   tmpDir: z.string().optional(),
   socketFile: z.string().optional(),
   ipcFile: z.string().optional(),
-  workers: z.number().int().optional(),
-  standby: z.number().int().optional(),
+  workers: z.number().int().min(1).optional(),
+  standby: z.number().int().min(0).optional(),
   options: partialOptionsSchema.optional(),
   env: z.array(z.string()).optional(),
   debug: z.boolean().optional(),
 });
 
 const finalOptionsSchema = z.strictObject({
-  spawnTimeout: z.number().int().default(2000),
-  onlineTimeout: z.number().int().default(10000),
-  shutdownTimeout: z.number().int().default(10000),
+  spawnTimeout: z.number().int().min(1).default(2000),
+  onlineTimeout: z.number().int().min(1).default(10000),
+  shutdownTimeout: z.number().int().min(1).default(10000),
+  maxStartAttempts: z.number().int().min(1).optional(),
   stdout: z.string().optional(),
   stderr: z.string().nullable().optional(),
 });
@@ -41,8 +43,8 @@ const finalConfigSchema = z.strictObject({
     .regex(/\{worker}/, `The 'socketFile' option must contain the '{worker}' placeholder`)
     .default('app.{worker}.sock'),
   ipcFile: z.string().default('nodesockd.ipc'),
-  workers: z.number().int().default(1),
-  standby: z.number().int().default(0),
+  workers: z.number().int().min(1).default(1),
+  standby: z.number().int().min(0).default(0),
   options: finalOptionsSchema.default({}),
   env: z.array(z.string()).default([]),
   debug: z.boolean().default(false),

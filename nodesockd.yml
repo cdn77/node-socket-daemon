@@ -1,0 +1,7 @@
+name: nodesockd example
+script: examples/server.js
+tmpDir: examples/tmp
+debug: true
+workers: 3
+options:
+  stdout: examples/app.log

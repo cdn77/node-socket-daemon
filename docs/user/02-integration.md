@@ -187,5 +187,5 @@ ID or PID.
 Next chapter: [Configuring Nodesockd][1]
 
 
-[1]: ./03-config.md
-[2]: ./05-ipc.md
+[1]: user/03-config.md
+[2]: dev/01-ipc.md

@@ -17,9 +17,11 @@ dist: node_modules
 build: clean dist
 
 example: dist
+	@mkdir -p examples/tmp
 	@echo ""
 	@echo "Example server starting."
 	@echo "Run 'tail -f examples/app.log' in another terminal to watch live worker output."
+	@echo "Examine 'examples/tmp' to see the worker sockets and symlinks."
 	@echo ""
 	@sleep 2
-	dist/cli/cli.js daemon --config examples/nodesockd.yml --dev-server
+	dist/cli/cli.js daemon --dev-server

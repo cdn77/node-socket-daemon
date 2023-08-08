@@ -1,3 +1,2 @@
-*.sock
-*.ipc
-*.log
+/tmp/
+/*.log

@@ -29,10 +29,12 @@ export type ApplicationRequestReply = {
 
 export type WorkerStart = {
   suspended?: boolean;
+  maxAttempts?: number;
 };
 
 export type WorkerRestart = {
   suspended?: boolean;
+  maxAttempts?: number;
   version?: string;
 };
 

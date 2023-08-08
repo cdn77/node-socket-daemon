@@ -70,9 +70,11 @@ export const getStatus = createCommand('status', 'Get daemon status', async (cli
 export const start = createCommand(
   'start',
   'Start workers',
-  (args) => args.boolean('suspended').alias('s', 'suspended'),
-  async (client, { suspended }) => {
-    await client.startWorkers(suspended);
+  (args) => args
+    .boolean('suspended').alias('s', 'suspended')
+    .number('max-attempts').alias('m', 'max-attempts'),
+  async (client, { suspended, maxAttempts }) => {
+    await client.startWorkers(suspended, maxAttempts);
   },
 );
 
@@ -81,10 +83,11 @@ export const restart = createCommand(
   'Restart workers',
   (args) => args
     .boolean('suspended').alias('s', 'suspended')
+    .number('max-attempts').alias('m', 'max-attempts')
     .boolean('upgrade').alias('u', 'upgrade'),
-  async (client, { suspended, upgrade, ipc, config }) => {
+  async (client, { suspended, maxAttempts, upgrade, ipc, config }) => {
     if (upgrade) {
-      const { upgrading, pid } = await client.restartWorkers(suspended, upgrade);
+      const { upgrading, pid } = await client.restartWorkers(suspended, maxAttempts, upgrade);
 
       if (upgrading) {
         console.log(`Daemon process with PID ${pid} is upgrading.`);
@@ -102,7 +105,7 @@ export const restart = createCommand(
       }
     }
 
-    await client.restartWorkers(suspended);
+    await client.restartWorkers(suspended, maxAttempts);
     await client.terminate();
   },
 );

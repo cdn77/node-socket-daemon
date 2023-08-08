@@ -13,6 +13,8 @@ import {
   consumeAsyncResources,
   EventEmitter,
   EventMap,
+  ParallelTask, ParallelTaskFailed,
+  ParallelTaskGroup,
   PromiseTimedOut,
   shortId,
   sleep,
@@ -55,19 +57,20 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
     this.adopting = false;
   }
 
-  async start(suspended?: boolean): Promise<void> {
+  async start(suspended?: boolean, maxAttempts?: number): Promise<void> {
     if (this.running) {
       return;
     }
 
+    this.running = true;
     this.logger.info('Starting workers...');
-    await this.startWorkers(suspended);
+    await this.startWorkers(suspended, maxAttempts);
   }
 
-  async restart(suspended?: boolean): Promise<void> {
+  async restart(suspended?: boolean, maxAttempts?: number): Promise<void> {
     this.running = true;
     this.logger.info('Restarting workers...');
-    await this.startWorkers(suspended);
+    await this.startWorkers(suspended, maxAttempts);
   }
 
   async resume(): Promise<void> {
@@ -190,30 +193,38 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
     return consumeAsyncResources(requests);
   }
 
-  private async startWorkers(suspended?: boolean): Promise<void> {
+  private async startWorkers(suspended?: boolean, maxAttempts?: number): Promise<void> {
+    maxAttempts ??= this.config.options.maxStartAttempts;
     const queue: Promise<any>[] = [];
+    const group = new ParallelTaskGroup();
 
     for (let i = 0; i < this.config.workers; ++i) {
-      queue.push(this.startWorker(i, suspended));
+      queue.push(this.startWorker(i, suspended, maxAttempts, group.createTask()));
     }
 
     const standbys = this.workers.ejectStandby();
 
     for (let i = 0; i < this.config.standby; ++i) {
-      queue.push(this.startWorker(true));
+      queue.push(this.startWorker(true, suspended, maxAttempts, group.createTask()));
     }
 
     queue.length && await Promise.all(queue);
     standbys.length && await Promise.all(standbys.map((standby) => standby.terminate()));
   }
 
-  private async startWorker(idxOrStandby: number | true, suspended?: boolean): Promise<void> {
+  private async startWorker(idxOrStandby: number | true, suspended?: boolean, maxAttempts?: number, task?: ParallelTask): Promise<void> {
     const standby = typeof idxOrStandby === 'boolean';
     const previous = !standby && this.workers.getCurrent(idxOrStandby);
+    const [pre, post] = idxOrStandby === true ? ['standby ', ''] : ['', ` #${idxOrStandby}`];
 
     while (this.running) {
+      if (maxAttempts !== undefined && --maxAttempts < 0) {
+        this.logger.warning(`Unable to start new ${pre}worker${post}, worker failed too many times`);
+        task?.fail();
+        throw new Error(`Failed to start one or more workers`);
+      }
+
       const id = v4();
-      const [pre, post] = idxOrStandby === true ? ['standby ', ''] : ['', ` #${idxOrStandby}`];
       this.logger.info(`Starting new ${pre}worker${post} '${shortId(id)}'...`);
       const worker = this.createWorker(id, idxOrStandby);
 
@@ -236,8 +247,10 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
       try {
         this.logger.debug(`Waiting for worker ${worker.descr} to come online...`);
         await worker.online;
+        task?.done();
 
         if (!standby) {
+          await task?.checkpoint();
           await this.symlinkSocket(worker);
         }
       } catch (e) {
@@ -247,12 +260,18 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
 
         this.workers.demote(worker);
         await worker.terminate();
+
+        if (e instanceof ParallelTaskFailed) {
+          return;
+        }
+
         continue;
       }
 
-      previous && await previous.terminate();
       break;
     }
+
+    previous && await previous.terminate();
   }
 
   private async adjustWorkerCount(count: number, orig: number, standby?: boolean): Promise<void> {
@@ -260,7 +279,7 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
       return;
     }
 
-    const queue: Promise<void>[] = [];
+    const queue: Promise<any>[] = [];
 
     if (orig > count) {
       for (let i = orig - 1; i >= count; --i) {
@@ -272,8 +291,10 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
         }
       }
     } else {
+      const group = new ParallelTaskGroup();
+
       for (let i = orig; i < count; ++i) {
-        queue.push(this.startWorker(standby || i));
+        queue.push(this.startWorker(standby || i, undefined, this.config.options.maxStartAttempts, group.createTask()));
       }
     }
 

@@ -1,5 +1,0 @@
-name: nodesockd example
-script: ./server.js
-tmpDir: .
-options:
-  stdout: app.log

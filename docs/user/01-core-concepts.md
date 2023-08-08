@@ -67,7 +67,7 @@ something that might change until the worker is resumed - e.g. it shouldn't
 execute any database queries. This way, when you have a database migration you
 need to execute during a deployment, the old workers (which depend on the
 original database structure) can be replaced with new workers in suspended
-state, where they can _accept_ requests, but the actual _handling_ of those
+state, wherein they can _accept_ requests, but the actual _handling_ of those
 requests is postponed; then the migration can be run, and then the suspended
 workers can be resumed, at which point they will process any pending requests
 which came while the workers were suspended - meaning that your application
@@ -82,5 +82,5 @@ workers will be started in suspended mode and resumed when they are activated.
 Next chapter: [Integrating Nodesockd with your application workers][1]
 
 
-[1]: ./02-integration.md
-[2]: ./04-setup.md
+[1]: user/02-integration.md
+[2]: user/04-setup.md

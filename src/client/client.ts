@@ -25,13 +25,13 @@ export class NodesockdClient {
     return this.ipc.sendRequest('status');
   }
 
-  async startWorkers(suspended?: boolean): Promise<void> {
-    await this.ipc.sendRequest('start-workers', { suspended });
+  async startWorkers(suspended?: boolean, maxAttempts?: number): Promise<void> {
+    await this.ipc.sendRequest('start-workers', { suspended, maxAttempts });
   }
 
-  async restartWorkers(suspended?: boolean, upgrade: boolean = false): Promise<WorkerRestartReply> {
+  async restartWorkers(suspended?: boolean, maxAttempts?: number, upgrade: boolean = false): Promise<WorkerRestartReply> {
     const version = upgrade ? getNodesockdVersion() : undefined;
-    return this.ipc.sendRequest('restart-workers', { suspended, version });
+    return this.ipc.sendRequest('restart-workers', { suspended, maxAttempts, version });
   }
 
   async resumeWorkers(): Promise<void> {

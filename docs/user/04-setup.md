@@ -35,7 +35,7 @@ of the temp directory, which is the Nginx group - therefore giving Nginx access
 to them. These are the commands you can use to achieve the desired effect
 (you'll probably need to be `root` to run them):
 
-```shell
+```
 mkdir <temp-dir>
 chown <app-user>:<nginx-group> <temp-dir>
 chmod u=rwx,g=rsx,o= <temp-dir>  # notice the 's' in 'g=rsx'
@@ -46,7 +46,7 @@ chmod u=rwx,g=rsx,o= <temp-dir>  # notice the 's' in 'g=rsx'
 This is what you need to do in your Nginx config to allow it to proxy requests
 to your application's workers:
 
-```
+```nginx
 upstream app-workers {
   # edit this to match the desired number of workers:
   server unix:<temp-dir>/app.0.sock;
@@ -95,7 +95,7 @@ sudo -u app-user node_modules/.bin/nodesockd daemon
 
 Example Systemd service unit:
 
-```unit file (systemd)
+```systemd
 [Unit]
 Description=Nodesockd daemon
 After=network.target
@@ -154,11 +154,7 @@ onto the `nodesockd restart` command in your CI pipeline (yes, you can combine
 it with `--suspend`) and you should be good.
 
 
-Next chapter (probably only interesting for developers who want to get deep
-into Nodesockd internals): [The IPC protocol][4]
 
-
-[1]: ./02-integration.md
-[2]: ./03-config.md
-[3]: ./01-core-concepts.md
-[4]: ./05-ipc.md
+[1]: user/02-integration.md
+[2]: user/03-config.md
+[3]: user/01-core-concepts.md

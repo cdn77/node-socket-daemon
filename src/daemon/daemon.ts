@@ -127,9 +127,9 @@ export class Daemon {
     await this.devServer?.close();
   }
 
-  private async handleRestart(suspended?: boolean, version?: string): Promise<WorkerRestartReply> {
+  private async handleRestart(suspended?: boolean, maxAttempts?: number, version?: string): Promise<WorkerRestartReply> {
     if (version === undefined || isCurrentVersion(version, this.version)) {
-      await this.pm.restart(suspended);
+      await this.pm.restart(suspended, maxAttempts);
       return { pid: process.pid };
     } else {
       this.logger.warning(`Upgrading daemon to version ${version}...`);
@@ -157,9 +157,11 @@ export class Daemon {
     peer.setRequestHandler('status', async () => this.getStatus());
     peer.setMessageHandler('online', async (data) => this.pm.handleOnline(peer, data));
     peer.setMessageHandler('broken', async (data) => this.pm.handleBroken(peer, data));
-    peer.setRequestHandler('start-workers', async ({ suspended }) => this.pm.start(suspended));
-    peer.setRequestHandler('restart-workers', async ({ suspended, version }) => {
-      return this.handleRestart(suspended, version)
+    peer.setRequestHandler('start-workers', async ({ suspended, maxAttempts }) => {
+      return this.pm.start(suspended, maxAttempts);
+    });
+    peer.setRequestHandler('restart-workers', async ({ suspended, maxAttempts, version }) => {
+      return this.handleRestart(suspended, maxAttempts, version)
     });
     peer.setRequestHandler('resume-workers', async () => this.pm.resume());
     peer.setRequestHandler('stop-workers', async () => this.pm.stop());

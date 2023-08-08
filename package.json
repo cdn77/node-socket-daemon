@@ -1,6 +1,6 @@
 {
   "name": "nodesockd",
-  "version": "2.0.0-rc.5",
+  "version": "2.0.0-rc.6",
   "description": "Bridges a Nginx reverse proxy to a Node.js service using Unix sockets",
   "homepage": "https://github.com/cdn77/node-socket-daemon",
   "license": "MIT",
@@ -15,21 +15,21 @@
   },
   "dependencies": {
     "@debugr/console": "^3.0.0-rc.8",
-    "@debugr/core": "^3.0.0-rc.9",
+    "@debugr/core": "^3.0.0-rc.10",
     "js-yaml": "^4.1.0",
-    "semver": "^7.3.8",
+    "semver": "^7.5.4",
     "uuid": "^9.0.0",
-    "yargs": "^17.7.1",
+    "yargs": "^17.7.2",
     "zod": "^3.21.4"
   },
   "devDependencies": {
-    "@tsconfig/node18": "^1.0.1",
+    "@tsconfig/node18": "^18.2.0",
     "@types/js-yaml": "^4.0.5",
-    "@types/node": "^18.15.10",
-    "@types/semver": "^7.3.13",
-    "@types/uuid": "^9.0.1",
+    "@types/node": "^18.17.3",
+    "@types/semver": "^7.5.0",
+    "@types/uuid": "^9.0.2",
     "@types/yargs": "^17.0.24",
-    "typescript": "^5.0.2"
+    "typescript": "^5.1.6"
   },
   "bin": {
     "nodesockd": "dist/cli/cli.js"

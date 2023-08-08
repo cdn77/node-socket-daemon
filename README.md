@@ -1,4 +1,4 @@
-# Node.js Socket Daemon
+# Nodesockd
 
 This tool is the missing link between a Nginx reverse proxy and a Node.js backend service.
 Typically, setups like this bind the backend service to a port on the loopback interface,
@@ -17,12 +17,7 @@ npm install --save nodesockd
 ```
 
 
-## Documentation
- - [Core concepts][1]
- - [Integrating with application code][2]
- - [Config reference][3]
- - [System setup and Nginx integration][4]
- - [FAQ for SysAdmins][5]
+## [Documentation][1]
 
 
 ## Quick start
@@ -73,8 +68,8 @@ node_modules/.bin/nodesockd daemon --dev-server=8123
 node build/app.js
 ```
 
-[1]: https://github.com/cdn77/node-socket-daemon/blob/main/docs/01-core-concepts.md
-[2]: https://github.com/cdn77/node-socket-daemon/blob/main/docs/02-integration.md
-[3]: https://github.com/cdn77/node-socket-daemon/blob/main/docs/03-config.md
-[4]: https://github.com/cdn77/node-socket-daemon/blob/main/docs/04-setup.md
-[5]: https://github.com/cdn77/node-socket-daemon/blob/main/docs/06-faq-for-admins.md
+Of course, this is what you might use for local development; in production,
+you'll need to set some things up to correctly expose the application sockets
+to Nginx. Refer to the [documentation][1] for more details.
+
+[1]: https://cdn77.github.io/node-socket-daemon

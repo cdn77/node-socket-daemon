@@ -27,12 +27,12 @@ nodesockd restart
 
 ### How do I change the number of active workers on the fly?
 
+> Don't forget to update the site's Nginx config to list the same number of
+> upstreams as you have workers!
+
 ```shell
 nodesockd set-workers <count>
 ```
-
-Don't forget to update the site's Nginx config to list the same number of
-upstreams as you have workers!
 
 
 ### How do I change the number of standby workers on the fly?
@@ -53,5 +53,5 @@ it probably means that the application process disables the group-writable bit
 using `umask` - talk to the application developers about this.
 
 
-[1]: ./04-setup.md
-[2]: ./03-config.md
+[1]: user/04-setup.md
+[2]: user/03-config.md
