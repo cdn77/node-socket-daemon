@@ -19,14 +19,14 @@ configuration options are:
 
 The `options` object can contain the following keys:
 
-| Option             | Type     | Description                                                                                                                                                                                                                                                                                       |
-|--------------------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `stdout`           | `string` | The path to a file into which the STDOUT of all workers should be redirected. By default STDOUT is discarded.                                                                                                                                                                                     |
-| `stderr`           | `string` | The path to a file into which the STDERR of all workers should be redirected. If unspecified, defaults to `stdout`; if `stdout` is specified, but STDERR should be discarded, set this option to `null`.                                                                                          |
-| `spawnTimeout`     | `int`    | The timeout for worker processes to spawn, in milliseconds. Spawning a worker process should be pretty fast, so this doesn't need to be too long. Default: `2000`.                                                                                                                                |
-| `onlineTimeout`    | `int`    | The timeout for worker processes to report themselves as being online, in milliseconds. The countdown starts when the worker is spawned. This may need to be adjusted if your workers take a long time to initialise. Default: `10000`.                                                           |
-| `shutdownTimeout`  | `int`    | The time after sending the worker a `shutdown` message after which more drastic measures should be taken if the worker fails to terminate. Default: `10000`.                                                                                                                                      |
-| `maxStartAttempts` | `int`    | The maximum number of attempts to start a worker before an error is thrown. This is only applied when an explicit CLI command like `start` or `set-workers` is issued (including starting the daemon itself) - when a worker dies on its own, it will be restarted indefinitely. None by default. |
+| Option             | Type     | Description                                                                                                                                                                                                                                                                                    |
+|--------------------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `stdout`           | `string` | The path to a file into which the STDOUT of all workers should be redirected. By default STDOUT is discarded.                                                                                                                                                                                  |
+| `stderr`           | `string` | The path to a file into which the STDERR of all workers should be redirected. If unspecified, defaults to `stdout`; if `stdout` is specified, but STDERR should be discarded, set this option to `null`.                                                                                       |
+| `spawnTimeout`     | `int`    | The timeout for worker processes to spawn, in milliseconds. Spawning a worker process should be pretty fast, so this doesn't need to be too long. Default: `2000`.                                                                                                                             |
+| `onlineTimeout`    | `int`    | The timeout for worker processes to report themselves as being online, in milliseconds. The countdown starts when the worker is spawned. This may need to be adjusted if your workers take a long time to initialise. Default: `10000`.                                                        |
+| `shutdownTimeout`  | `int`    | The time after sending the worker a `shutdown` message after which more drastic measures should be taken if the worker fails to terminate. Default: `10000`.                                                                                                                                   |
+| `maxStartAttempts` | `int`    | The maximum number of attempts to start a worker before an error is thrown. This is only applied when an explicit CLI command like `start` or `set-workers` is issued (including starting the daemon itself) - when a worker dies on its own, it will be restarted indefinitely. Default: `1`. |
 
 
 ## Config files vs. paths
@@ -60,7 +60,7 @@ configuration are resolved to absolute according to the following rules:
  - `ipcFile` and `socketFile` are resolved relative to `tmpDir`
 
 
-Next chapter: [System setup][1]
+Next chapter: [Deployment][1]
 
 
-[1]: user/04-setup.md
+[1]: user/04-deployment.md

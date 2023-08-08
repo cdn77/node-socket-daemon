@@ -8,7 +8,8 @@ Unix sockets.
   - [Core concepts](user/01-core-concepts.md)
   - [Integration](user/02-integration.md)
   - [Configuration](user/03-config.md)
-  - [Setup](user/04-setup.md)
+  - [Deployment](user/04-deployment.md)
+  - [CLI](user/05-cli.md)
 - [FAQ for server admins](faq.md)
 - Internals
   - [IPC protocol](dev/01-ipc.md)

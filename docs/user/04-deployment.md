@@ -1,7 +1,7 @@
-# Nodesockd setup
+# Nodesockd deployment
 
-There are a couple of steps you need to take in order to enable your app
-to use Nodesockd:
+There are a couple of steps you need to take in order to deploy an app using
+Nodesockd:
 
 1. Application setup
    1. Install Nodesockd as a dependency of your app (`npm i --save nodesockd`)
@@ -117,7 +117,7 @@ employed:
  - `SIGHUP` will cause the daemon to reload the application config file
 
 
-## Deployment
+## Deploying new workers
 
 When deploying a new version of your application you need to restart the
 application workers. This is done using the `nodesockd restart` command.
@@ -138,6 +138,8 @@ to its original state and run `nodesockd restart` to replace the (still
 suspended) new workers with new instances of the previous application version's
 workers.
 
+## Upgrading Nodesockd
+
 Nodesockd itself may receive updates from time to time. If you decide to update
 your app's version of Nodesockd, you'll need to restart the daemon in order
 for the new version to be used. If you do this using the system service you've
@@ -153,8 +155,10 @@ workers with new ones. In other words, you can simply slap the `--upgrade` flag
 onto the `nodesockd restart` command in your CI pipeline (yes, you can combine
 it with `--suspend`) and you should be good.
 
+Next chapter: [The Nodesockd CLI][4]
 
 
 [1]: user/02-integration.md
 [2]: user/03-config.md
 [3]: user/01-core-concepts.md
+[4]: user/05-cli.md

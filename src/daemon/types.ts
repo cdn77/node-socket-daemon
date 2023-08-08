@@ -14,7 +14,7 @@ import {
   WorkerSetName,
   WorkerStart,
   WorkerRestart,
-  WorkerRestartReply,
+  WorkerRestartReply, DaemonConfig,
 } from '../common';
 import { IpcMessageMap } from '../ipc';
 
@@ -37,6 +37,7 @@ export interface WorkerProcessIpcOutgoingMap extends IpcMessageMap {
 
 export interface DaemonIpcIncomingMap extends WorkerProcessIpcIncomingMap {
   status: [undefined, DaemonStatus];
+  config: [undefined, DaemonConfig];
   'start-workers': [WorkerStart, void];
   'restart-workers': [WorkerRestart, WorkerRestartReply];
   'resume-workers': [undefined, void];

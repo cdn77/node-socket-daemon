@@ -30,7 +30,7 @@ const finalOptionsSchema = z.strictObject({
   spawnTimeout: z.number().int().min(1).default(2000),
   onlineTimeout: z.number().int().min(1).default(10000),
   shutdownTimeout: z.number().int().min(1).default(10000),
-  maxStartAttempts: z.number().int().min(1).optional(),
+  maxStartAttempts: z.number().int().min(1).default(1),
   stdout: z.string().optional(),
   stderr: z.string().nullable().optional(),
 });
@@ -102,8 +102,8 @@ async function loadConfigFile(root: string, candidates: string | string[]): Prom
   );
 }
 
-function resolvePaths(config: Config, file: string): [config: Config, file: string] {
-  const root = dirname(file);
+function resolvePaths(config: Config, files: string[]): [config: Config, files: string[]] {
+  const root = dirname(files[0]);
 
   // paths relative to config file
   config.script = resolve(root, config.script);
@@ -115,21 +115,21 @@ function resolvePaths(config: Config, file: string): [config: Config, file: stri
   config.ipcFile = resolve(config.tmpDir, config.ipcFile);
   config.socketFile = resolve(config.tmpDir, config.socketFile);
 
-  return [config, file];
+  return [config, files];
 }
 
-export async function loadConfig(cwd: string, configPath?: string): Promise<[config: Config, file: string]> {
+export async function loadConfig(cwd: string, configPath?: string): Promise<[config: Config, files: string[]]> {
   let candidates: string | string[] = configPath ?? globalCandidates;
   let config: PartialConfig = { options: {} };
-  let configFile: string | undefined = undefined;
+  const files: string[] = [];
 
   do {
     const [{ extends: next, options = {}, ...cfg }, file] = await loadConfigFile(cwd, candidates);
     config = { ...cfg, ...config, options: { ...options, ...config.options } };
-    configFile ??= file;
+    files.push(file);
     candidates = next as any;
     cwd = dirname(file);
   } while (candidates);
 
-  return resolvePaths(finalConfigSchema.parse(config), configFile);
+  return resolvePaths(finalConfigSchema.parse(config), files);
 }

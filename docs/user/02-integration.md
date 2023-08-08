@@ -100,15 +100,15 @@ supports one-way _messages_ and two-way _requests_. The protocol defines
 message and request types which each side can handle, and there is a dedicated
 message and request type for app-specific communication, meaning you don't have
 to worry about conflicts with internal Nodesockd messages. App-specific messages
-and requests can be addressed to all currently active workers, or only some of
+and requests can be addressed to all currently running workers, or only some of
 them.
 
 The Nodesockd CLI has commands you can use to send messages and requests
 to workers:
 
 ```shell
-nodesockd send-msg <message> [data] [--workers <workers>]
-nodesockd send-req <request> [data] [--workers <workers>]
+nodesockd send-msg [--workers <workers>] <message> [data]
+nodesockd send-req [--workers <workers>] <request> [data]
 ```
 
 There is also an IPC client library you can use to build your own CLI commands
@@ -166,11 +166,11 @@ be specified as JSON). Replies to requests must also be JSON-serializable,
 but don't need to be objects.
 
 The `workers` option is an optional string specifying which workers should
-be the recipients of the communication; if not specified, all currently active
-online workers will be selected. The string must be a comma-separated list
-of _specifiers_:
+be the recipients of the communication; if not specified, all currently online
+workers will be selected. The string must be a comma-separated list of
+_specifiers_:
 
- - An integer will be used to select a worker by its index.
+ - An integer will be used to select a worker by its zero-based index.
  - An integer range, e.g. `2-4`, will likewise select workers by their index;
    omitting the range start will select from `0`, and omitting the range end
    will select all workers up to the highest index.
@@ -181,8 +181,8 @@ of _specifiers_:
 
 Prefixing a specifier with a `!` will invert the selection (and suddenly the
 `self` specifier makes much more sense). Note that the only way to select
-workers which aren't currently active (e.g. standbys) is by specifying their
-ID or PID.
+workers which aren't currently online (e.g. standbys) is by specifying their
+UUID or PID.
 
 Next chapter: [Configuring Nodesockd][1]
 

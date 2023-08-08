@@ -2,7 +2,7 @@ import { ConsoleHandler } from '@debugr/console';
 import { Logger, LogLevel } from '@debugr/core';
 import { ZodError } from 'zod';
 import {
-  Config,
+  Config, DaemonConfig,
   DaemonStatus,
   getNodesockdVersion,
   loadConfig, WorkerRestartReply,
@@ -15,8 +15,8 @@ import { DaemonIpcIncomingMap } from './types';
 import { lte as isCurrentVersion } from 'semver';
 
 export class Daemon {
-  private readonly configPath: string;
   private config: Config;
+  private configFiles: string[];
   private readonly logger: Logger;
   private readonly ipc: UnixSocketIpcServer;
   private readonly pm: ProcessManager;
@@ -25,9 +25,9 @@ export class Daemon {
   private readonly startTs: number;
   private terminating: boolean = false;
 
-  constructor(configPath: string, config: Config, devServerPort?: number) {
-    this.configPath = configPath;
+  constructor(config: Config, configFiles: string[], devServerPort?: number) {
     this.config = config;
+    this.configFiles = configFiles;
     this.logger = new Logger({
       globalContext: {},
       plugins: [
@@ -92,14 +92,20 @@ export class Daemon {
     };
   }
 
+  getConfig(): DaemonConfig {
+    return {
+      config: this.config,
+      files: this.configFiles,
+    };
+  }
+
   async reloadConfig(catchErrors: boolean = false): Promise<void> {
     this.logger.info('Reloading daemon config...');
 
     try {
-      const [config] = await loadConfig('/', this.configPath);
-      this.config = config;
-      process.title = `${config.name} daemon`;
-      await this.pm.setConfig(config);
+      [this.config, this.configFiles] = await loadConfig('/', this.configFiles[0]);
+      process.title = `${this.config.name} daemon`;
+      await this.pm.setConfig(this.config);
       this.logger.info('Daemon config reloaded successfully');
     } catch (e) {
       if (!catchErrors || !(e instanceof ZodError)) {
@@ -155,6 +161,7 @@ export class Daemon {
     const peer = new IpcPeer<{}, DaemonIpcIncomingMap>(socket);
 
     peer.setRequestHandler('status', async () => this.getStatus());
+    peer.setRequestHandler('config', async () => this.getConfig());
     peer.setMessageHandler('online', async (data) => this.pm.handleOnline(peer, data));
     peer.setMessageHandler('broken', async (data) => this.pm.handleBroken(peer, data));
     peer.setRequestHandler('start-workers', async ({ suspended, maxAttempts }) => {

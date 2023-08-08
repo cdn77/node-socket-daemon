@@ -1,5 +1,6 @@
 import {
   DaemonApplicationRequestReply,
+  DaemonConfig,
   DaemonSendApplicationMessage,
   DaemonSendApplicationRequest,
   DaemonSetWorkerCount,
@@ -14,6 +15,7 @@ import { IpcMessageMap } from '../ipc';
 export interface ClientIpcOutgoingMap extends IpcMessageMap {
   connect: [undefined, undefined];
   status: [undefined, DaemonStatus];
+  config: [undefined, DaemonConfig];
   'start-workers': [WorkerStart, undefined];
   'restart-workers': [WorkerRestart, WorkerRestartReply];
   'resume-workers': [undefined, undefined];

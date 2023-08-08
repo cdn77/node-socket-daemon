@@ -86,6 +86,9 @@ export function createCommand<Args>(
               : `Error: ${e.errors.join('')}`,
           );
           process.exit(1);
+        } else if (e instanceof IpcConnectError) {
+          console.log(`Daemon doesn't seem to be running.`);
+          process.exit(1);
         } else {
           throw e;
         }

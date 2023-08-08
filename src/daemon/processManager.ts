@@ -247,10 +247,9 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
       try {
         this.logger.debug(`Waiting for worker ${worker.descr} to come online...`);
         await worker.online;
-        task?.done();
+        await task?.checkpoint();
 
         if (!standby) {
-          await task?.checkpoint();
           await this.symlinkSocket(worker);
         }
       } catch (e) {

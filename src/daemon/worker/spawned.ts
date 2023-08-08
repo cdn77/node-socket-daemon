@@ -50,7 +50,7 @@ export class SpawnedWorkerProcess extends AbstractWorkerProcess {
     worker.on('spawn', handleSpawned);
     worker.on('error', handleError);
     const pid = await startup.promise;
-    const ipc: WorkerIpcPeer = new IpcPeer(new NativeIpcTransport(worker));
+    const ipc: WorkerIpcPeer = new IpcPeer(new NativeIpcTransport(worker as any)); // Serializable doesn't include null :'(
     await this.init(pid, ipc);
   }
 }

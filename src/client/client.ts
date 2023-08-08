@@ -1,7 +1,9 @@
 import {
   DaemonApplicationRequestReply,
+  DaemonConfig,
   DaemonStatus,
-  getNodesockdVersion, WorkerRestartReply,
+  getNodesockdVersion,
+  WorkerRestartReply,
 } from '../common';
 import { IpcPeer, JsonObject, UnixSocketIpcTransport } from '../ipc';
 import { ClientIpcOutgoingMap } from './types';
@@ -23,6 +25,10 @@ export class NodesockdClient {
 
   async getStatus(): Promise<DaemonStatus> {
     return this.ipc.sendRequest('status');
+  }
+
+  async getConfig(): Promise<DaemonConfig> {
+    return this.ipc.sendRequest('config');
   }
 
   async startWorkers(suspended?: boolean, maxAttempts?: number): Promise<void> {

@@ -13,7 +13,7 @@ export interface IpcTransport extends EventEmitter<IpcTransportEvents> {
 
 export class IpcConnectError extends Error {}
 
-export type JsonSerializable = string | number | boolean | JsonSerializable[] | JsonObject;
+export type JsonSerializable = string | number | boolean | null | JsonSerializable[] | JsonObject;
 
 export type JsonObject = {
   [key: string | number]: JsonSerializable | undefined;

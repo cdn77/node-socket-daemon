@@ -1,7 +1,8 @@
+import { dump } from 'js-yaml';
 import { CommandModule } from 'yargs';
 import { resolveConfig } from '../common';
 import { Daemon } from '../daemon';
-import { IpcConnectError, IpcRequestError } from '../ipc';
+import { IpcRequestError } from '../ipc';
 import { shortId, sleep } from '../utils';
 import {
   coerceJson,
@@ -26,45 +27,45 @@ export const daemon: CommandModule<DaemonArgs, DaemonArgs> = {
     .string('config').alias('c', 'config')
     .number('dev-server').alias('d', 'dev-server').coerce('dev-server', (v) => v ?? 8000),
   handler: async (args) => {
-    const [config, file] = await resolveConfig(args.config);
-    const daemon = new Daemon(file, config, args.devServer);
+    const [config, files] = await resolveConfig(args.config);
+    const daemon = new Daemon(config, files, args.devServer);
     await daemon.run();
   },
 };
 
 
 export const getStatus = createCommand('status', 'Get daemon status', async (client) => {
-  try {
-    const status = await client.getStatus();
+  const status = await client.getStatus();
 
-    console.log(`Nodesockd daemon ${status.version} is running with PID ${status.pid} since ${formatTs(status.startTs)}.`);
+  console.log(`Nodesockd daemon ${status.version} is running with PID ${status.pid} since ${formatTs(status.startTs)}.`);
 
-    const idxLen = Math.max(1, ...status.workers.map((w) => (w.idx ?? 0).toString().length));
-    const pidLen = Math.max(3, ...status.workers.map((w) => (w.pid ?? 0).toString().length));
+  const idxLen = Math.max(1, ...status.workers.map((w) => (w.idx ?? 0).toString().length));
+  const pidLen = Math.max(3, ...status.workers.map((w) => (w.pid ?? 0).toString().length));
 
-    console.log(`\nWorkers:\n`);
-    console.log(`|${' '.repeat(idxLen)}# | ID    | PID${' '.repeat(pidLen - 3)} | State                        |`);
-    console.log(`|${'-'.repeat(idxLen)}--|-------|----${'-'.repeat(pidLen - 3)}-|------------------------------|`);
+  console.log(`\nWorkers:\n`);
+  console.log(`|${' '.repeat(idxLen)}# | ID    | PID${' '.repeat(pidLen - 3)} | State                        |`);
+  console.log(`|${'-'.repeat(idxLen)}--|-------|----${'-'.repeat(pidLen - 3)}-|------------------------------|`);
 
-    for (const w of status.workers.sort(compareWorkerStates)) {
-      const parts = [
-        pad(w.idx, idxLen),
-        shortId(w.id),
-        pad(w.pid, pidLen),
-        `${w.state.padEnd(11, ' ')} (${formatTs(w.stateTs)})`,
-      ];
+  for (const w of status.workers.sort(compareWorkerStates)) {
+    const parts = [
+      pad(w.idx, idxLen),
+      shortId(w.id),
+      pad(w.pid, pidLen),
+      `${w.state.padEnd(11, ' ')} (${formatTs(w.stateTs)})`,
+    ];
 
-      console.log(`| ${parts.join(' | ')} |`);
-    }
-
-    console.log('\n');
-  } catch (e) {
-    if (e instanceof IpcConnectError) {
-      console.log(`Daemon doesn't seem to be running.`);
-    } else {
-      throw e;
-    }
+    console.log(`| ${parts.join(' | ')} |`);
   }
+
+  console.log('\n');
+});
+
+export const getConfig = createCommand('config', 'Get daemon config', async (client) => {
+  const { config, files } = await client.getConfig();
+
+  console.log(`Current daemon config:`);
+  console.log(dump(config).replace(/^/gm, '  '));
+  console.log(`Loaded files:\n - ${files.join('\n - ')}`);
 });
 
 export const start = createCommand(
@@ -136,13 +137,31 @@ export const setStandbyCount = createCommand(
   },
 );
 
+export const reloadDaemonConfig = createCommand(
+  'reload',
+  'Ask the daemon to reload its config',
+  async (client) => {
+    await client.reloadConfig();
+  },
+);
+
+export const terminateDaemon = createCommand(
+  'terminate',
+  'Ask the daemon to terminate',
+  async (client) => {
+    const pid = await client.terminateDaemon();
+    await client.terminate();
+    await waitForPidToTerminate(pid);
+  },
+);
+
 export const sendAppMessage = createCommand(
   'send-msg <message> [data]',
   'Send a message to all workers',
   (args) => args
     .positional('message', { type: 'string', demandOption: true })
     .positional('data', { type: 'string' }).coerce('data', coerceJson)
-    .string('workers'),
+    .string('workers').alias('workers', 'w'),
   async (client, { message, data, workers }) => {
     await client.sendAppMessage(message, data, workers);
   },
@@ -154,7 +173,7 @@ export const sendAppRequest = createCommand(
   (args) => args
     .positional('request', { type: 'string', demandOption: true })
     .positional('data', { type: 'string' }).coerce('data', coerceJson)
-    .string('workers'),
+    .string('workers').alias('workers', 'w'),
   async (client, { request, data, workers }) => {
     try {
       const replies = client.sendAppRequest(request, data, workers);
@@ -173,23 +192,5 @@ export const sendAppRequest = createCommand(
         throw e;
       }
     }
-  },
-);
-
-export const reloadDaemonConfig = createCommand(
-  'reload',
-  'Ask the daemon to reload its config',
-  async (client) => {
-    await client.reloadConfig();
-  },
-);
-
-export const terminateDaemon = createCommand(
-  'terminate',
-  'Ask the daemon to terminate',
-  async (client) => {
-    const pid = await client.terminateDaemon();
-    await client.terminate();
-    await waitForPidToTerminate(pid);
   },
 );

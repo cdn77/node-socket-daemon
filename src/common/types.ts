@@ -1,4 +1,5 @@
 import { JsonObject, JsonSerializable } from '../ipc';
+import { Config } from './config';
 
 export type WorkerOnline = {
   id: string;
@@ -66,6 +67,11 @@ export type DaemonStatus = {
   pid: number;
   startTs: number;
   workers: WorkerStatus[];
+};
+
+export type DaemonConfig = {
+  config: Config;
+  files: string[];
 };
 
 export type DaemonSetWorkerCount = {

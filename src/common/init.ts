@@ -11,6 +11,6 @@ export async function resolveIpcFile(ipcFile?: string, configPath?: string): Pro
   return config.ipcFile;
 }
 
-export async function resolveConfig(configFile?: string): Promise<[config: Config, file: string]> {
+export async function resolveConfig(configFile?: string): Promise<[config: Config, files: string[]]> {
   return loadConfig(await resolveCwd(), configFile);
 }
