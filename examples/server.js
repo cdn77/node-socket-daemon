@@ -22,8 +22,6 @@ nodesockd.on('shutdown', () => {
 });
 
 server.listen(nodesockd.socketPath ?? 8000, async () => {
-  // await new Promise((r) => setTimeout(r, 2000));
-  // process.exit();
   await nodesockd.reportOnline();
   console.log(`Server is listening for requests.`);
 });
