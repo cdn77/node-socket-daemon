@@ -155,6 +155,12 @@ workers with new ones. In other words, you can simply slap the `--upgrade` flag
 onto the `nodesockd restart` command in your CI pipeline (yes, you can combine
 it with `--suspend`) and you should be good.
 
+If a `nodesockd restart --upgrade` doesn't result in a daemon restart, the
+existing daemon will reload its configuration prior to restarting workers, so
+that the observed behaviour is the same regardless of whether the daemon is
+upgraded (because if the daemon _is_ upgraded, the new process _must_ load
+the configuration files from disk).
+
 Next chapter: [The Nodesockd CLI][4]
 
 

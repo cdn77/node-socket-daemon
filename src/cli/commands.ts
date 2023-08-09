@@ -99,7 +99,7 @@ export const restart = createCommand(
 
         console.log('Waiting for a new daemon process to come online...');
         client = await createClient(ipc, config, true);
-        await sleep(2000); // ensure adoption period has passed
+        await sleep(2500); // ensure adoption period has passed
       } else {
         console.log(`Daemon process with PID ${pid} is already the latest version.`);
         return;

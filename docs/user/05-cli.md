@@ -139,6 +139,11 @@ document, the path to the `nodesockd` executable is left out for brevity.
   daemon was started, and then `extends` options will be resolved as usual,
   meaning that the final list of loaded config files may change.
 
+  The daemon will apply the new configuration immediately upon issuing this
+  command. It will try to figure out the smallest set of actions needed to make
+  the actual state match the configuration, but some changes _will_ lead to
+  workers being restarted. As usual, this should happen with zero downtime.
+
   **Options:**
 
   - ( `--config=<path>` _or_ `-c <path>` ) _or_ ( `--ipc=<path>` _or_ `-i <path>` )  
@@ -181,8 +186,8 @@ document, the path to the `nodesockd` executable is left out for brevity.
 
 - ### `nodesockd send-req <request> [data]`
   This command will send the specified `<request>`, optionally along with any
-  JSON-serialized `[data]`, to one or more workers, and display the result from
-  each worker. See the [Messaging][4] section of the Integration page for
+  JSON-serialized `[data]`, to one or more workers, and display the response(s)
+  from each worker. See the [Messaging][4] section of the Integration page for
   details on how to specify which workers should receive the request and how to
   handle requests in workers.
 

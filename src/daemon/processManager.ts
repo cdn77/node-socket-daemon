@@ -13,7 +13,8 @@ import {
   consumeAsyncResources,
   EventEmitter,
   EventMap,
-  ParallelTask, ParallelTaskFailed,
+  ParallelTask,
+  ParallelTaskFailed,
   ParallelTaskGroup,
   PromiseTimedOut,
   shortId,
@@ -33,6 +34,8 @@ export interface ProcessManagerEvents extends EventMap {
   offline: [socketPath: string];
 }
 
+export type ApplyConfigCb = (config: Config, orig: Config) => Promise<void>;
+
 export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
   private readonly logger: Logger;
   private config: Config;
@@ -51,10 +54,14 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
 
   async run(): Promise<void> {
     this.running = true;
-    await sleep(2000);
-    await this.setWorkerCount(this.config.workers);
-    await this.setStandbyCount(this.config.standby);
+    await sleep(2000); // allow adopting previous daemon's workers
     this.adopting = false;
+
+    if (!this.workers.size && !this.workers.standbys) {
+      // no workers were adopted, meaning we're not inside an upgrade -> lets start our own workers:
+      this.logger.info('Starting workers...');
+      await this.startWorkers();
+    }
   }
 
   async start(suspended?: boolean, maxAttempts?: number): Promise<void> {
@@ -132,29 +139,15 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
     worker.handleBroken(reason);
   }
 
-  async setConfig(config: Config): Promise<void> {
-    const actions = compareConfig(this.config, config);
+  async setConfig(config: Config, cb?: ApplyConfigCb): Promise<void> {
+    const orig = this.config;
     this.config = config;
 
-    for (const action of actions) {
-      switch (action) {
-        case 'restart':
-          await this.restart();
-          break;
-        case 'set-name':
-          await Promise.all(this.workers.mapAll(async (worker) => {
-            if (worker.isInState('running', 'online', 'suspended')) {
-              await worker.setName(this.config.name);
-            }
-          }));
-          break;
-        case 'set-workers':
-          await this.setWorkerCount(this.config.workers);
-          break;
-        case 'set-standby':
-          await this.setStandbyCount(this.config.standby);
-          break;
-      }
+    try {
+      await (cb ? cb(config, orig) : this.applyConfig(config, orig));
+    } catch (e) {
+      this.config = orig;
+      throw e;
     }
   }
 
@@ -202,14 +195,20 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
       queue.push(this.startWorker(i, suspended, maxAttempts, group.createTask()));
     }
 
-    const standbys = this.workers.ejectStandby();
+    const obsolete = [
+      ...this.workers.ejectStandby(),
+      ...this.workers.resolve(`${this.config.workers}-`).map((worker) => {
+        this.workers.demote(worker);
+        return worker;
+      }),
+    ];
 
     for (let i = 0; i < this.config.standby; ++i) {
       queue.push(this.startWorker(true, suspended, maxAttempts, group.createTask()));
     }
 
     queue.length && await Promise.all(queue);
-    standbys.length && await Promise.all(standbys.map((standby) => standby.terminate()));
+    obsolete.length && await Promise.all(obsolete.map((worker) => worker.terminate()));
   }
 
   private async startWorker(idxOrStandby: number | true, suspended?: boolean, maxAttempts?: number, task?: ParallelTask): Promise<void> {
@@ -298,6 +297,31 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
     }
 
     queue.length && await Promise.all(queue);
+  }
+
+  private async applyConfig(config: Config, orig: Config): Promise<void> {
+    const actions = compareConfig(orig, config);
+
+    for (const action of actions) {
+      switch (action) {
+        case 'restart':
+          await this.restart();
+          break;
+        case 'set-name':
+          await Promise.all(this.workers.mapAll(async (worker) => {
+            if (worker.isInState('running', 'online', 'suspended')) {
+              await worker.setName(this.config.name);
+            }
+          }));
+          break;
+        case 'set-workers':
+          await this.setWorkerCount(this.config.workers);
+          break;
+        case 'set-standby':
+          await this.setStandbyCount(this.config.standby);
+          break;
+      }
+    }
   }
 
   private async handleWorkerBroken(worker: AbstractWorkerProcess): Promise<void> {

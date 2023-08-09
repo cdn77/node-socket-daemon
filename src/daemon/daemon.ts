@@ -2,15 +2,17 @@ import { ConsoleHandler } from '@debugr/console';
 import { Logger, LogLevel } from '@debugr/core';
 import { ZodError } from 'zod';
 import {
-  Config, DaemonConfig,
+  Config,
+  DaemonConfig,
   DaemonStatus,
   getNodesockdVersion,
-  loadConfig, WorkerRestartReply,
+  loadConfig,
+  WorkerRestartReply,
 } from '../common';
 import { IpcPeer, UnixSocketIpcServer, UnixSocketIpcTransport } from '../ipc';
 import { PromiseAborted, sleep } from '../utils';
 import { DevServer } from './devServer';
-import { ProcessManager } from './processManager';
+import { ApplyConfigCb, ProcessManager } from './processManager';
 import { DaemonIpcIncomingMap } from './types';
 import { lte as isCurrentVersion } from 'semver';
 
@@ -99,21 +101,32 @@ export class Daemon {
     };
   }
 
-  async reloadConfig(catchErrors: boolean = false): Promise<void> {
+  async reloadConfig(catchErrors: boolean = false, cb?: ApplyConfigCb): Promise<void> {
     this.logger.info('Reloading daemon config...');
 
     try {
-      [this.config, this.configFiles] = await loadConfig('/', this.configFiles[0]);
+      const [config, configFiles] = await loadConfig('/', this.configFiles[0]);
+
+      await this.pm.setConfig(config, cb);
+
+      [this.config, this.configFiles] = [config, configFiles];
       process.title = `${this.config.name} daemon`;
-      await this.pm.setConfig(this.config);
+
       this.logger.info('Daemon config reloaded successfully');
     } catch (e) {
-      if (!catchErrors || !(e instanceof ZodError)) {
+      if (!catchErrors) {
         throw e;
       }
 
-      const msg = e.errors.length > 1 ? `\n - ${e.errors.join('\n - ')}` : ` ${e.errors.join('')}`;
-      this.logger.error(`Failed to reload config file:${msg}`);
+      if (!(e instanceof ZodError) || e.errors.length < 2) {
+        this.logger.error(`Failed to reload config file: ${e.message}`);
+      } else {
+        this.logger.error('Failed to reload config file');
+
+        for (const err of e.errors) {
+          this.logger.error(`${err.path}: ${err.message}`);
+        }
+      }
     }
   }
 
@@ -135,7 +148,13 @@ export class Daemon {
 
   private async handleRestart(suspended?: boolean, maxAttempts?: number, version?: string): Promise<WorkerRestartReply> {
     if (version === undefined || isCurrentVersion(version, this.version)) {
-      await this.pm.restart(suspended, maxAttempts);
+      if (version !== undefined) {
+        // upgrade requested, but already on latest version -> make sure we reload configuration:
+        await this.reloadConfig(false, async () => this.pm.restart(suspended, maxAttempts));
+      } else {
+        await this.pm.restart(suspended, maxAttempts);
+      }
+
       return { pid: process.pid };
     } else {
       this.logger.warning(`Upgrading daemon to version ${version}...`);
