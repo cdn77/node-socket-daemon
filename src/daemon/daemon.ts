@@ -27,7 +27,7 @@ export class Daemon {
   private readonly startTs: number;
   private terminating: boolean = false;
 
-  constructor(config: Config, configFiles: string[], devServerPort?: number) {
+  constructor(config: Config, configFiles: string[], devServer?: number | boolean) {
     this.config = config;
     this.configFiles = configFiles;
     this.logger = new Logger({
@@ -43,7 +43,16 @@ export class Daemon {
     this.pm = new ProcessManager(this.logger, config);
     this.version = getNodesockdVersion();
     this.startTs = Date.now();
-    devServerPort && (this.devServer = new DevServer(devServerPort));
+
+    if (devServer !== false && (devServer !== undefined || this.config.devServer !== false)) {
+      const devServerPort =
+        typeof devServer === 'number' ? devServer
+          : typeof this.config.devServer === 'number' ? this.config.devServer
+          : 8000;
+
+      this.devServer = new DevServer(devServerPort);
+    }
+
     this.handleSignal = this.handleSignal.bind(this);
     this.handleIpcConnection = this.handleIpcConnection.bind(this);
     this.handleUncaughtError = this.handleUncaughtError.bind(this);

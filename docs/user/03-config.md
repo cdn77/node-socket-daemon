@@ -3,19 +3,20 @@
 Nodesockd is configured using one or more YAML config files. The available
 configuration options are:
 
-| Option       | Type       | Description                                                                                                                                                          |
-|--------------|------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `extends`    | `string`   | An optional path to another configuration file to merge with the current file.                                                                                       |
-| `script`     | `string`   | **Required.** The path to the worker script / entry point.                                                                                                           |
-| `tmpDir`     | `string`   | **Required.** The path to the directory which should hold worker sockets, as well as the Nodesockd IPC socket.                                                       |
-| `name`       | `string`   | The name to use in the process titles of all processes launched by Nodesockd; default: `app`.                                                                        |
-| `socketFile` | `string`   | The name for the application socket file. This value must contain the `{worker}` placeholder, which will be replaced by the worker ID. Default: `app.{worker}.sock`. |
-| `ipcFile`    | `string`   | The name of the IPC socket used to communicate between the daemon, the worker processes and the Nodesockd CLI. Defaults to `nodesockd.ipc`.                          |
-| `workers`    | `int`      | The number of workers Nodesockd should launch; defaults to `1`.                                                                                                      |
-| `standby`    | `int`      | The number of standby workers Nodesockd should launch; default is zero.                                                                                              |
-| `options`    | `object`   | An object with some advanced options, see below.                                                                                                                     |
-| `env`        | `string[]` | An array of environment variable names to pass through to workers. `NODE_ENV` will be always included automatically.                                                 |
-| `debug`      | `boolean`  | Set to `true` to enable more verbose output from the daemon if things get hairy.                                                                                     |
+| Option       | Type                  | Description                                                                                                                                                          |
+|--------------|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `extends`    | `string`              | An optional path to another configuration file to merge with the current file.                                                                                       |
+| `script`     | `string`              | **Required.** The path to the worker script / entry point.                                                                                                           |
+| `tmpDir`     | `string`              | **Required.** The path to the directory which should hold worker sockets, as well as the Nodesockd IPC socket.                                                       |
+| `name`       | `string`              | The name to use in the process titles of all processes launched by Nodesockd; default: `app`.                                                                        |
+| `socketFile` | `string`              | The name for the application socket file. This value must contain the `{worker}` placeholder, which will be replaced by the worker ID. Default: `app.{worker}.sock`. |
+| `ipcFile`    | `string`              | The name of the IPC socket used to communicate between the daemon, the worker processes and the Nodesockd CLI. Defaults to `nodesockd.ipc`.                          |
+| `workers`    | `int`                 | The number of workers Nodesockd should launch; defaults to `1`.                                                                                                      |
+| `standby`    | `int`                 | The number of standby workers Nodesockd should launch; default is zero.                                                                                              |
+| `options`    | `object`              | An object with some advanced options, see below.                                                                                                                     |
+| `env`        | `string[]`            | An array of environment variable names to pass through to workers. `NODE_ENV` will be always included automatically.                                                 |
+| `devServer`  | `boolean` or `number` | Configures the built-in development web server. `true` to enable the server on the default port `8000`, `number` to enable on a different port; `false` by default.  |
+| `debug`      | `boolean`             | Set to `true` to enable more verbose output from the daemon if things get hairy.                                                                                     |
 
 The `options` object can contain the following keys:
 

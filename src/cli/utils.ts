@@ -137,6 +137,24 @@ export function coerceJson(value?: string): JsonObject | undefined {
   return data;
 }
 
+export function coerceBooleanOrNumber(value?: any): number | boolean {
+  if (value === undefined || value === '') {
+    return true;
+  }
+
+  switch (typeof value) {
+    case 'number':
+    case 'boolean':
+      return value;
+    case 'string': {
+      const numeric = Number(value);
+      return Number.isNaN(numeric) ? true : numeric;
+    }
+    default:
+      throw new Error('Value must be a number or a boolean');
+  }
+}
+
 export function formatErrors(errors: string[]): string {
   return errors.length > 1 ? `\n - ${errors.join('\n - ')}` : ` ${errors.join('')}`;
 }

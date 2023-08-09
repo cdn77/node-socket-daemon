@@ -13,10 +13,8 @@ document, the path to the `nodesockd` executable is left out for brevity.
   - `--config=<path>` _or_ `-c <path>`  
     The path to the Nodesockd config file. See the [Configuration][1] section
     for more about how the config file will be resolved.
-  - `--dev-server[=port]` _or_ `-d [port]`  
-    Pass this option to enable the built-in development web server. This allows
-    you to use Nodesockd in development without the need to configure Nginx. If
-    `port` is omitted, it defaults to `8000`.
+  - `--dev-server[=port]` _or_ `-d [port]` _or_ `--no-dev-server`  
+    This option can be used to override the `devServer` config option.
   
   ---
 

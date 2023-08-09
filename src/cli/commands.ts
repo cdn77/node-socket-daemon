@@ -5,6 +5,7 @@ import { Daemon } from '../daemon';
 import { IpcRequestError } from '../ipc';
 import { shortId, sleep } from '../utils';
 import {
+  coerceBooleanOrNumber,
   coerceJson,
   compareWorkerStates,
   createClient,
@@ -17,7 +18,7 @@ import {
 
 export type DaemonArgs = {
   config?: string;
-  devServer?: number;
+  devServer?: number | boolean;
 };
 
 export const daemon: CommandModule<DaemonArgs, DaemonArgs> = {
@@ -25,7 +26,7 @@ export const daemon: CommandModule<DaemonArgs, DaemonArgs> = {
   describe: 'Run the Nodesockd daemon',
   builder: (args) => args
     .string('config').alias('c', 'config')
-    .number('dev-server').alias('d', 'dev-server').coerce('dev-server', (v) => v ?? 8000),
+    .string('dev-server').alias('d', 'dev-server').coerce('dev-server', coerceBooleanOrNumber),
   handler: async (args) => {
     const [config, files] = await resolveConfig(args.config);
     const daemon = new Daemon(config, files, args.devServer);

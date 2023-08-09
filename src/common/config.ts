@@ -24,6 +24,7 @@ const partialConfigSchema = z.strictObject({
   standby: z.number().int().min(0).optional(),
   options: partialOptionsSchema.optional(),
   env: z.array(z.string()).optional(),
+  devServer: z.union([z.boolean(), z.number().int()]).optional(),
   debug: z.boolean().optional(),
 });
 
@@ -49,6 +50,7 @@ const finalConfigSchema = z.strictObject({
   standby: z.number().int().min(0).default(0),
   options: finalOptionsSchema.default({}),
   env: z.array(z.string()).default([]),
+  devServer: z.union([z.boolean(), z.number().int()]).default(false),
   debug: z.boolean().default(false),
 });
 
