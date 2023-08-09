@@ -415,7 +415,7 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
 
     this.logger.debug(`Symlinking socket for worker ${worker.descr}`);
     const socketPath = this.formatWorkerSocketPath(worker.idx);
-    const actualPath = this.formatWorkerSocketPath(worker.id);
+    const actualPath = this.formatWorkerSocketPath(worker.id, this.config.options.symlinks === 'relative');
     const tmpPath = `${socketPath}.new`;
     await symlink(actualPath, tmpPath);
     await rename(tmpPath, socketPath);
@@ -428,7 +428,8 @@ export class ProcessManager extends EventEmitter<ProcessManagerEvents> {
     } catch { /* noop */ }
   }
 
-  private formatWorkerSocketPath(worker: number | string): string {
-    return this.config.socketFile.replace('{worker}', worker.toString());
+  private formatWorkerSocketPath(worker: number | string, relative: boolean = false): string {
+    const path = this.config.socketFile.replace('{worker}', worker.toString());
+    return relative ? path.replace(/^.*\//, './') : path;
   }
 }

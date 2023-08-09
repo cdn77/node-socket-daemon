@@ -8,6 +8,7 @@ const partialOptionsSchema = z.strictObject({
   onlineTimeout: z.number().int().min(1).optional(),
   shutdownTimeout: z.number().int().min(1).optional(),
   maxStartAttempts: z.number().int().min(1).optional(),
+  symlinks: z.enum(['absolute', 'relative']).optional(),
   stdout: z.string().optional(),
   stderr: z.string().nullable().optional(),
 });
@@ -31,6 +32,7 @@ const finalOptionsSchema = z.strictObject({
   onlineTimeout: z.number().int().min(1).default(10000),
   shutdownTimeout: z.number().int().min(1).default(10000),
   maxStartAttempts: z.number().int().min(1).default(1),
+  symlinks: z.enum(['absolute', 'relative']).default('relative'),
   stdout: z.string().optional(),
   stderr: z.string().nullable().optional(),
 });

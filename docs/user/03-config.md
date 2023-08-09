@@ -27,6 +27,7 @@ The `options` object can contain the following keys:
 | `onlineTimeout`    | `int`    | The timeout for worker processes to report themselves as being online, in milliseconds. The countdown starts when the worker is spawned. This may need to be adjusted if your workers take a long time to initialise. Default: `10000`.                                                        |
 | `shutdownTimeout`  | `int`    | The time after sending the worker a `shutdown` message after which more drastic measures should be taken if the worker fails to terminate. Default: `10000`.                                                                                                                                   |
 | `maxStartAttempts` | `int`    | The maximum number of attempts to start a worker before an error is thrown. This is only applied when an explicit CLI command like `start` or `set-workers` is issued (including starting the daemon itself) - when a worker dies on its own, it will be restarted indefinitely. Default: `1`. |
+| `symlinks`         | `string` | Specifies how the worker sockets should be referenced in the symlinks exposed to Nginx. Can be either `absolute` or `relative`. By default, the symlinks will be relative.                                                                                                                     |
 
 
 ## Config files vs. paths
